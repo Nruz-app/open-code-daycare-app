@@ -7,7 +7,6 @@ import type { UserRole } from "@/app/lib/session";
 
 /** Rutas accesibles sin sesión. */
 export const PUBLIC_ROUTES = [
-  "/", // landing / index
   "/login",
   "/activar-cuenta",
   "/vincular-padre", // enlace de invitación para familias

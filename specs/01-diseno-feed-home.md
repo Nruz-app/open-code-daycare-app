@@ -1,6 +1,6 @@
 # SPEC 01 — Maqueta estática del feed como home del personal
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** Ninguna
 > **Fecha:** 2026-11-09
 > **Objetivo:** Replicar el diseño de `references/pantallas/feed.dc.html` en la ruta `/feed` con contenido de ejemplo fijo, dejando las fuentes y los tokens de color reutilizables en el layout global.

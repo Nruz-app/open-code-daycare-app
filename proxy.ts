@@ -24,6 +24,13 @@ export function proxy(request: NextRequest) {
   const session = decodeSession(request.cookies.get(SESSION_COOKIE)?.value);
   const isPublicRoute = matches(pathname, PUBLIC_ROUTES);
 
+  // 0. La raíz no tiene pantalla propia: lleva al home del rol o al acceso.
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL(session ? HOME_BY_ROLE[session.role] : "/login", request.nextUrl),
+    );
+  }
+
   // 1. Sin sesión en ruta protegida -> /login recordando el destino
   if (!session && !isPublicRoute) {
     const loginUrl = new URL("/login", request.nextUrl);

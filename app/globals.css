@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Tokens de diseño de references/pantallas/feed.dc.html.
+ * Tailwind v4 los expone como utilidades: bg-cream, text-ink, font-display,
+ * rounded-card, shadow-card, etc.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Superficies */
+  --color-cream: #f6ecdf;
+  --color-surface: #fffdf9;
+  --color-line: #ece0d0;
+  --color-line-soft: #f0e6d8;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Texto */
+  --color-ink: #3f362e;
+  --color-ink-strong: #4a4038;
+  --color-ink-muted: #94887b;
+  --color-ink-soft: #a89a8b;
+  --color-ink-label: #8a7c6d;
+
+  /* Acentos cálidos */
+  --color-coral: #ee8164;
+  --color-coral-deep: #d9583c;
+  --color-coral-heart: #e0654a;
+  --color-coral-link: #c5503a;
+  --color-coral-soft: #fbe3d8;
+
+  /* Celeste (actividad) */
+  --color-sky: #a9d9e8;
+  --color-sky-ink: #1f7a93;
+  --color-sky-deep: #2e89a6;
+  --color-sky-soft: #c7e7f1;
+
+  /* Verde (logro) */
+  --color-mint: #3e9b6c;
+  --color-mint-soft: #cfebd8;
+
+  /* Azul (anuncio) */
+  --color-lilac: #4e72c8;
+  --color-lilac-soft: #ccd8f4;
+
+  /* Placeholder de foto */
+  --color-placeholder: #f4ece1;
+  --color-placeholder-line: #dbcdba;
+
+  /* Tipografías: las variables las define next/font en app/layout.tsx */
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-fredoka);
+
+  /* Radios */
+  --radius-box: 18px;
+  --radius-card: 20px;
+  --radius-chip: 14px;
+
+  /* Sombras */
+  --shadow-soft: 0 4px 14px -10px rgba(120, 90, 60, 0.4);
+  --shadow-card: 0 4px 16px -12px rgba(120, 90, 60, 0.5);
+  --shadow-cta: 0 8px 18px -8px rgba(238, 129, 100, 0.75);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
