@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { AppSidebar } from "@/app/components/app-sidebar";
 import { requireRole } from "@/app/lib/dal";
 import { getNino, type AvatarTone } from "@/app/lib/mock-ninos";
+import { VincularPadre } from "@/app/ninos/vincular-padre";
 
 /**
  * Ruta bloqueante a propósito: con `cacheComponents` hay que optar por no
@@ -202,26 +203,7 @@ export default async function PerfilNinoPage({
                     </div>
                   ))}
 
-                  <a href="#" className="flex items-center gap-3 pt-2">
-                    <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full border-[1.5px] border-dashed border-[#d8cbba] text-[#b0a290]">
-                      <svg
-                        aria-hidden="true"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                    </span>
-                    <span className="text-[14.5px] font-extrabold text-coral-link">
-                      Vincular otro padre
-                    </span>
-                  </a>
+                  <VincularPadre ninoNombre={nino.nombre} />
                 </div>
               </div>
             </div>
