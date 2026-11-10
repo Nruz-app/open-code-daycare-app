@@ -1,17 +1,19 @@
 import type { ReactNode } from "react";
 
+type NavKey = "feed" | "ninos" | "avisos" | "cuenta";
+
 type NavItem = {
+  key: NavKey;
   label: string;
   href: string;
   icon: ReactNode;
-  active?: boolean;
 };
 
 const navItems: NavItem[] = [
   {
+    key: "feed",
     label: "Feed",
     href: "/feed",
-    active: true,
     icon: (
       <svg
         width="19"
@@ -28,8 +30,9 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    key: "ninos",
     label: "Niños",
-    href: "#",
+    href: "/ninos",
     icon: (
       <svg
         width="19"
@@ -48,6 +51,7 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    key: "avisos",
     label: "Avisos",
     href: "#",
     icon: (
@@ -66,6 +70,7 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    key: "cuenta",
     label: "Mi cuenta",
     href: "#",
     icon: (
@@ -86,7 +91,12 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  /** Ítem de navegación que se muestra como activo. */
+  active?: NavKey;
+};
+
+export function AppSidebar({ active = "feed" }: AppSidebarProps) {
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-line bg-surface px-4 pt-2.5 md:hidden">
@@ -125,9 +135,9 @@ export function AppSidebar() {
             <a
               key={item.label}
               href={item.href}
-              aria-current={item.active ? "page" : undefined}
+              aria-current={item.key === active ? "page" : undefined}
               className={
-                item.active
+                item.key === active
                   ? "flex shrink-0 items-center gap-1.5 rounded-xl bg-coral-soft px-2 py-2 text-[12.5px] font-extrabold text-coral-deep"
                   : "flex shrink-0 items-center gap-1.5 rounded-xl px-2 py-2 text-[12.5px] font-semibold text-[#6e6359]"
               }
@@ -194,9 +204,9 @@ export function AppSidebar() {
           <a
             key={item.label}
             href={item.href}
-            aria-current={item.active ? "page" : undefined}
+            aria-current={item.key === active ? "page" : undefined}
             className={
-              item.active
+              item.key === active
                 ? "flex items-center gap-3 rounded-xl bg-coral-soft px-3 py-[11px] text-[14.5px] font-extrabold text-coral-deep"
                 : "flex items-center gap-3 rounded-xl px-3 py-[11px] text-[14.5px] font-semibold text-[#6e6359]"
             }
