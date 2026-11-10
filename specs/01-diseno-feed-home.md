@@ -69,15 +69,15 @@ Convenciones:
 
 ## Criterios de aceptación
 
-- [ ] `npx tsc --noEmit` termina sin errores.
+- [x] `npx tsc --noEmit` termina sin errores.
 - [ ] `npm run lint` no reporta errores nuevos.
-- [ ] Sin cookie de sesión, `GET /feed` redirige a `/login`.
-- [ ] Con una sesión válida de rol `staff`, `/feed` renderiza el encabezado "GUARDERÍA · SALA SOLES", el saludo "Buenas, Caro" y las tres tarjetas de la referencia.
-- [ ] El `font-family` calculado del `h1` incluye `Fredoka` y el del `body` incluye `Nunito`.
-- [ ] El fondo calculado del `body` es `#F6ECDF`.
-- [ ] En 1440 px la sidebar mide 248 px, está sticky y el contenido está centrado con ancho máximo de 760 px.
-- [ ] En 375 px no aparece scroll horizontal y la navegación sigue visible en una barra superior.
-- [ ] La ruta `/feed` no muestra textos del scaffold ("Create Next App", "Deploy Now").
+- [x] Sin cookie de sesión, `GET /feed` redirige a `/login`.
+- [x] Con una sesión válida de rol `staff`, `/feed` renderiza el encabezado "GUARDERÍA · SALA SOLES", el saludo "Buenas, Caro" y las tres tarjetas de la referencia.
+- [x] El `font-family` calculado del `h1` incluye `Fredoka` y el del `body` incluye `Nunito`.
+- [x] El fondo calculado del `body` es `#F6ECDF`.
+- [x] En 1440 px la sidebar mide 248 px, está sticky y el contenido está centrado con ancho máximo de 760 px.
+- [x] En 375 px no aparece scroll horizontal y la navegación sigue visible en una barra superior.
+- [x] La ruta `/feed` no muestra textos del scaffold ("Create Next App", "Deploy Now").
 - [ ] `app/page.tsx` sigue mostrando el scaffold sin cambios.
 
 ## Decisiones
@@ -112,3 +112,46 @@ Convenciones:
 - Landing pública y rediseño de `app/page.tsx`.
 
 Cada uno de esos puntos, si llega, va en su propia spec.
+
+## Verificación
+
+- **Fecha:** 2026-11-10
+- **Modelo:** opencode/deepseek-v4.1-flash-free
+- **Entorno:** Next.js 16.4.5, `npm run dev` en http://localhost:3000 (servidor iniciado por esta verificación)
+- **Resultado:** 8/10 criterios verificados · 1 fallo · 1 no verificable
+
+| # | Criterio | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| 1 | `npx tsc --noEmit` termina sin errores. | ✅ | `npx tsc --noEmit` sin salida, código de salida 0. |
+| 2 | `npm run lint` no reporta errores nuevos. | ⚠️ | `npm run lint` sale con código 1: 2 errores y 8 avisos, **todos** en `references/pantallas/support.js` (190-1089). Ese archivo está versionado y sin modificar (`git status --short` no lo lista; proviene del commit `ea6be2f`). Ningún archivo de esta spec (`app/globals.css`, `app/layout.tsx`, `app/components/app-sidebar.tsx`, `app/feed/page.tsx`) aparece en el reporte. No se puede demostrar “no hay errores nuevos” solo con esta ejecución. |
+| 3 | Sin cookie de sesión, `GET /feed` redirige a `/login`. | ✅ | `curl.exe -sS -o NUL -D - http://localhost:3000/feed` → `HTTP/1.1 307 Temporary Redirect` + `location: /login?next=%2Ffeed`. |
+| 4 | Con sesión `staff`, `/feed` renderiza encabezado, saludo y tres tarjetas. | ✅ | Login demo (`/login` → botón “Entrar al feed”) termina en `http://localhost:3000/feed`. `document.body.innerText` incluye `GUARDERÍA · SALA SOLES`, `Buenas, Caro` y los tres `<article>` con chips `LOGRO`, `ACTIVIDAD` y `ANUNCIO`; `document.querySelectorAll("article").length === 3`. |
+| 5 | `font-family` del `h1` incluye Fredoka y el del `body` Nunito. | ✅ | `getComputedStyle(h1).fontFamily` = `Fredoka, "Fredoka Fallback"`; `getComputedStyle(document.body).fontFamily` = `Nunito, "Nunito Fallback"` (1440 px). |
+| 6 | Fondo calculado del `body` es `#F6ECDF`. | ✅ | `getComputedStyle(document.body).backgroundColor` = `rgb(246, 236, 223)`, equivalente a `#F6ECDF` (token `--color-cream` en `app/globals.css:10`). |
+| 7 | En 1440 px sidebar de 248 px sticky y contenido centrado con máximo 760 px. | ✅ | `aside`: `width: 248px`, `position: sticky`, `top: 0px`, `height: 900px`. Contenedor interno: `max-width: 760px`, ancho 760 px, con separación izquierda 208 px y derecha 209 px dentro del área visible de `main` (la diferencia de 1 px es redondeo; el `main` reserva 15 px de barra de scroll). |
+| 8 | En 375 px sin scroll horizontal y navegación visible en barra superior. | ✅ | `documentElement.scrollWidth` 360 = `clientWidth` 360 (`hasHorizontalScroll: false`); `aside` con `display: none`; `<header>` sticky con `top: 0`, ancho 360 px, alto 94 px y `<nav aria-label="Navegación principal">` visible. |
+| 9 | La ruta `/feed` no muestra textos del scaffold. | ✅ | En `/feed`, `innerText.includes("Create Next App") === false` y `innerText.includes("Deploy Now") === false`. |
+| 10 | `app/page.tsx` sigue mostrando el scaffold sin cambios. | ❌ | `app/page.tsx:1-10` ya no contiene el scaffold: importa `redirect` y ejecuta `redirect("/feed")`. Cambiado en el commit `ea6be2f` junto con esta spec. |
+
+### Fallos
+
+- **`app/page.tsx` sigue mostrando el scaffold sin cambios.** El archivo (`app/page.tsx:8-10`) solo hace `redirect("/feed")` y no renderiza el scaffold de `create-next-app`. Para cumplir el criterio habría que revertir `app/page.tsx` al scaffold, pero eso contradice la convención de home por rol que documenta `AGENTS.md` (“`app/page.tsx` only redirects”) y el paso 3 del plan de esta spec. Se recomienda que una persona decida entre restaurar el archivo o reescribir el criterio; el verificador no cambia ninguno de los dos.
+
+### Bloqueos
+
+- **`npm run lint` no reporta errores nuevos.** No es un fallo de la implementación: los 2 errores están en `references/pantallas/support.js`, un bundle de referencia versionado antes de esta spec y que la spec no toca. Falta una corrección de alcance para poder afirmarlo con una ejecución limpia: o se ignora `references/**` en `eslint.config.mjs`, o se arreglan los errores de `support.js` (`ReactDOM.render` → `createRoot`, reasignación de `module`). Mientras tanto el criterio queda como no verificable en su forma actual.
+
+### Next.js (Context7)
+
+- `libraryId`: `/vercel/next.js/v16.4.5` (versión instalada: 16.4.5).
+- Concepto 1: convención `proxy.ts` en Next.js 16. Recomendación: crear `proxy.ts` en la raíz exportando `proxy` (named o default) más `config.matcher`; `middleware.ts` está deprecado y solo cambian el nombre de archivo y de export. El código la cumple: `proxy.ts:22` exporta `proxy` y `proxy.ts:67-72` define `config.matcher`.
+- Concepto 2: `next/font/google` con varias fuentes y variables CSS en el layout raíz. Recomendación: crear cada fuente con `variable: '--font-x'`, `subsets: ['latin']` y aplicar las clases `.variable` en `<html>`. El código la cumple: `app/layout.tsx:5-15` define Fredoka/Nunito con `--font-fredoka` y `--font-nunito`, y `app/layout.tsx:27` las aplica al `<html>`; `app/globals.css:48-49` mapea `--font-sans` y `--font-display`.
+
+### Capturas
+
+- `.playwright-mcp/page-2026-11-10T15-29-44-842Z.png` — `/feed` a 1440×900 (fullPage; el scroll interno de `main` recorta las tarjetas siguientes). Comparada con `references/screenshots/feed.png`: coinciden sidebar de 248 px, logo, CTA, saludo, composer y tarjeta de logro.
+- `.playwright-mcp/page-2026-11-10T15-29-53-979Z.png` — `/feed` a 375×812: barra superior sticky con logo, navegación y avatar; CTA dentro del contenido; sin scroll horizontal.
+
+### Observaciones menores (fuera de los criterios)
+
+- El icono de “me gusta” de las tarjetas se renderiza relleno en coral (`app/feed/page.tsx:140-152`), mientras que en `references/screenshots/feed.png` aparece como corazón de trazo. No afecta a ningún criterio de esta spec.
