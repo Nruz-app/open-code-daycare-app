@@ -12,6 +12,11 @@
   --color-line: #ece0d0;
   --color-line-soft: #f0e6d8;
 
+  /* Superficies de autenticación (login y activación de cuenta) */
+  --color-paper: #fbf4ec;
+  --color-field-line: #eadfd0;
+  --color-field-hint: #b6a99b;
+
   /* Texto */
   --color-ink: #3f362e;
   --color-ink-strong: #4a4038;
