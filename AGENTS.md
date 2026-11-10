@@ -57,6 +57,9 @@ Spanish-language daycare portal with two roles (`staff`, `family`). The repo is 
 
 - `/spec`, `/spec-impl`, and `/spec-imp` are defined in `.opencode/commands/`, backed by the
   `.agents/skills/spec*` skills. They reply in Spanish.
+- `/spec-verify` is defined in `.opencode/commands/spec-verify.md` and backed by the
+  `.opencode/agents/spec-verify.md` agent. It verifies a spec's acceptance criteria, marks checks
+  only with evidence, uses Context7 for Next.js and Playwright for screens, and never edits code.
 - Specs live in `specs/NN-slug.md` (create `specs/` if missing and start at `01-`). `/spec-impl` only
   runs on an `Approved` spec, creates a `spec-NN-slug` branch, and never commits on its own.
 - The `nextjs-agent-rules` block above is auto-written by `next dev`; leave it in place.
