@@ -1,6 +1,6 @@
 # SPEC 05 — Diálogo de nueva publicación en el feed
 
-> **Estado:** Aprobardo
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-11-10
 > **Objetivo:** Replicar `references/pantallas/crear-publicacion.dc.html` como diálogo nativo en `/feed`, abierto desde la caja "Compartí un momento…", el CTA móvil y el botón "Nueva publicación" de la sidebar, con validación local y confirmación en pantalla.
