@@ -161,7 +161,7 @@ export function CrearPublicacionProvider({
   const [destinatario, setDestinatario] = useState(
     destinatarios[0]?.id ?? TODA_LA_SALA,
   );
-  const [tipo, setTipo] = useState<TipoPublicacion>("Comida");
+  const [tipos, setTipos] = useState<TipoPublicacion[]>(["Comida"]);
   const [descripcion, setDescripcion] = useState("");
   const [errores, setErrores] = useState<Errores>({});
   const [aviso, setAviso] = useState<string | null>(null);
@@ -197,9 +197,21 @@ export function CrearPublicacionProvider({
   /** El `close` del diálogo limpia el formulario en todos los caminos. */
   function limpiar() {
     setDestinatario(destinatarios[0]?.id ?? TODA_LA_SALA);
-    setTipo("Comida");
+    setTipos(["Comida"]);
     setDescripcion("");
     setErrores({});
+  }
+
+  /**
+   * TIPO es multiselección: cada pastilla se activa y desactiva sin tocar las
+   * demás. Se puede dejar vacío; no es obligatorio elegir un tipo.
+   */
+  function alternarTipo(opcion: TipoPublicacion) {
+    setTipos((actuales) =>
+      actuales.includes(opcion)
+        ? actuales.filter((tipoActual) => tipoActual !== opcion)
+        : [...actuales, opcion],
+    );
   }
 
   function publicar() {
@@ -312,14 +324,14 @@ export function CrearPublicacionProvider({
             className="mb-[22px] flex flex-wrap gap-[9px]"
           >
             {TIPOS.map((opcion) => {
-              const activo = tipo === opcion;
+              const activo = tipos.includes(opcion);
 
               return (
                 <button
                   key={opcion}
                   type="button"
                   aria-pressed={activo}
-                  onClick={() => setTipo(opcion)}
+                  onClick={() => alternarTipo(opcion)}
                   className={`rounded-full px-4 py-2 text-[13.5px] font-extrabold transition-colors ${
                     activo
                       ? TIPO_CLASS[opcion].activo

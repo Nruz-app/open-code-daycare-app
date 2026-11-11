@@ -22,6 +22,17 @@ La ampliación conecta la sidebar **solo en `/feed`**:
 
 Sigue fuera de alcance: persistencia, subida de fotos, insertar en "PUBLICADO HOY", una ruta propia y abrir el diálogo desde la sidebar de `/ninos`.
 
+## Ampliación 2026-11-10 (2) — TIPO con selección múltiple
+
+La versión original fijaba selección única en TIPO. En uso real una publicación combina tipos (por ejemplo "Comida" y "Foto" cuando se manda el almuerzo con imagen), así que la pastilla pasa a comportarse como un interruptor independiente:
+
+- El estado es `tipos: TipoPublicacion[]`, no `tipo: TipoPublicacion`.
+- `alternarTipo(opcion)` agrega la pastilla si no estaba y la quita si ya estaba; no toca las demás.
+- `aria-pressed` sigue siendo el estado correcto: cada pastilla es un botón de alternancia dentro del `role="group"` "TIPO".
+- Al abrir y al cerrar el diálogo el estado vuelve a `["Comida"]`, igual que antes.
+- Se puede dejar TIPO vacío: no hay validación de tipo y "Publicar" solo exige descripción.
+- PARA no cambia: sigue con un único destinatario y "Toda la sala" excluyente.
+
 ## Alcance
 
 **Dentro:**
@@ -30,7 +41,7 @@ Sigue fuera de alcance: persistencia, subida de fotos, insertar en "PUBLICADO HO
 - Sustitución en `app/feed/page.tsx` de los dos `<a href="#">` por un único `<CrearPublicacion destinatarios={…} />`, con la lista calculada como `ninos.slice(0, 3)`.
 - Diálogo de 580 px de ancho máximo con header de tres partes: "Cancelar" a la izquierda, "Nueva publicación" al centro y "Publicar" a la derecha.
 - Bloque "PARA" con los chips de Mateo, Sofía y Benjamín (inicial sobre su tono de avatar) y el chip "Toda la sala"; selección única.
-- Bloque "TIPO" con las siete pastillas Comida, Siesta, Actividad, Logro, Ánimo, Foto y Anuncio; selección única.
+- Bloque "TIPO" con las siete pastillas Comida, Siesta, Actividad, Logro, Ánimo, Foto y Anuncio; selección múltiple e independiente por pastilla.
 - Bloque "DESCRIPCIÓN" con un `<textarea>` que arranca vacío y placeholder "Contá cómo le fue hoy…".
 - Bloque "FOTOS" con los dos cuadros de 96 × 96 px de la maqueta, inertes.
 - Validación local: descripción obligatoria, mensaje inline en español, `aria-invalid`, `aria-describedby` y `role="alert"`, siguiendo `app/ninos/agregar-nino.tsx`.
@@ -116,7 +127,7 @@ Estado local, dentro de `CrearPublicacionProvider`:
 const [destinatario, setDestinatario] = useState<string>(
   destinatarios[0]?.id ?? TODA_LA_SALA,
 );
-const [tipo, setTipo] = useState<TipoPublicacion>("Comida");
+const [tipos, setTipos] = useState<TipoPublicacion[]>(["Comida"]);
 const [descripcion, setDescripcion] = useState("");
 const [errores, setErrores] = useState<Errores>({});
 const [aviso, setAviso] = useState<string | null>(null);
@@ -124,6 +135,15 @@ const [aviso, setAviso] = useState<string | null>(null);
 const CrearPublicacionContext = createContext<CrearPublicacionContexto | null>(
   null,
 );
+
+/** Multiselección: agrega si no estaba, quita si ya estaba. */
+function alternarTipo(opcion: TipoPublicacion) {
+  setTipos((actuales) =>
+    actuales.includes(opcion)
+      ? actuales.filter((tipoActual) => tipoActual !== opcion)
+      : [...actuales, opcion],
+  );
+}
 ```
 
 `CrearPublicacion` y `BotonNuevaPublicacion` consumen el contexto con `useCrearPublicacion()`; el provider expone solo `{ abrir }`, así que los disparadores no pueden desincronizar el formulario.
@@ -151,7 +171,7 @@ Convenciones:
 
 - `destinatarios` llega por props: `app/feed/page.tsx` mapea `ninos.slice(0, 3)` a `{ id, nombre: nino.nombre.split(" ")[0], inicial, avatarTone }`. El servidor decide la lista; el componente cliente no importa `mock-ninos.ts` salvo para el tipo `AvatarTone`.
 - `destinatario` guarda el `id` del niño o la constante `TODA_LA_SALA`, y arranca en el primero de la lista (Mateo), igual que la maqueta.
-- `tipo` arranca en `"Comida"`, la pastilla sólida de la referencia.
+- `tipos` es un array y arranca en `["Comida"]`, la pastilla sólida de la referencia. Cada pastilla se alterna de forma independiente; se permite dejar el array vacío.
 - `descripcion` arranca vacía: el texto de la maqueta es contenido de ejemplo, no un valor por defecto.
 - Los tonos de avatar se resuelven con un mapa local `Record<AvatarTone, string>` copiado de `app/ninos/page.tsx`: `sky` `#A9D9E8` / `#1F7A93`, `pink` `#F4B8CC` / `#C44A7A`, `mint` `#B9DEC4` / `#3E8B62`, `sand` `#F4DC8E` / `#9A7B1E`, `lilac` `#C9B6E8` / `#7B5FC0`.
 - El aviso es `Publicación lista para ${nombre}.`, donde `nombre` es el nombre del niño o "toda la sala", y se apaga solo a los 4 segundos.
@@ -164,7 +184,7 @@ Convenciones:
 3. Renderizar la caja "Compartí un momento…" y el CTA coral "Nueva publicación" con `md:hidden` desde `CrearPublicacion`, ambos con `onClick={abrir}` del contexto. Manual: en 1440 px el CTA no se renderiza; en 375 px ambos disparadores abren el mismo diálogo.
 4. Añadir el header del diálogo: "Cancelar" (`type="button"`, cierre), `<h2 id="crear-publicacion-titulo">Nueva publicación</h2>` y "Publicar" (`type="button"`), con `aria-labelledby`, `border-b border-line` y padding `18px` en móvil y `26px` desde `sm`. Manual: los tres elementos quedan alineados como en la maqueta.
 5. Añadir el bloque PARA: etiqueta `PARA`, chips de `destinatarios` con inicial de 26 px sobre su tono y el nombre, más el chip "Toda la sala" sin avatar; `aria-pressed`, selección única y estado activo `#3F362E`. Manual: pulsar Sofía desactiva Mateo y viceversa.
-6. Añadir el bloque TIPO con las siete pastillas y la tabla de colores; `aria-pressed` y selección única. Manual: al abrir, Comida es la única sólida; al pulsar Siesta, Comida vuelve a su tono suave.
+6. Añadir el bloque TIPO con las siete pastillas y la tabla de colores; `aria-pressed` y multiselección con `alternarTipo`, que agrega o quita cada pastilla sin tocar las demás. Manual: al abrir, solo Comida está sólida; al pulsar Siesta, ambas quedan sólidas; al volver a pulsar Comida, solo Siesta sigue activa.
 7. Añadir el bloque DESCRIPCIÓN: `<textarea>` controlado, `min-h-[120px]`, `resize-y`, radio 14 px, borde `#EADFD0` y placeholder "Contá cómo le fue hoy…", con `mb-[22px]`.
 8. Implementar la publicación con el `Publicar` del header: recortar la descripción; si queda vacía, pintar el error inline, marcar `aria-invalid`, `aria-describedby` y enfocar el textarea sin cerrar; si es válida, `setAviso(...)`, `cerrar()` y un `useEffect` que limpia el aviso a los 4 segundos. `onClose` limpia descripción, tipo, destinatario y errores, y no toca el aviso. Manual: publicar sin texto muestra el error; publicar con texto cierra y muestra el aviso.
 9. Añadir el bloque FOTOS: dos `<div>` de 96 × 96 px con `rounded-[14px]`, el primero con fondo `#F4ECE1`, borde `#ECE0D0` y el icono de imagen en `#CBB89F`; el segundo con borde punteado `#DBCDBA`, icono `+` en `#C5503A` y la etiqueta "Agregar". Sin foco, sin handler y con `aria-hidden="true"` en el contenedor.
@@ -186,14 +206,15 @@ Convenciones:
 - [x] Pulsar "Sofía" la deja activa, desactiva "Mateo" y actualiza `aria-pressed` en ambos.
 - [x] El bloque TIPO muestra las siete pastillas Comida, Siesta, Actividad, Logro, Ánimo, Foto y Anuncio.
 - [x] Al abrir, "Comida" está activa con fondo `rgb(154, 123, 30)` y texto blanco; las demás usan su tono suave.
-- [x] Pulsar "Siesta" la deja activa con fondo `rgb(123, 95, 192)` y devuelve "Comida" a `rgb(244, 220, 142)`.
+- [x] Pulsar "Siesta" la deja activa con fondo `rgb(123, 95, 192)` y "Comida" sigue activa: TIPO es multiselección.
+- [x] Volver a pulsar una pastilla activa la desactiva y no afecta a las demás; se pueden dejar las siete inactivas y "Publicar" no exige un tipo.
 - [x] El campo DESCRIPCIÓN arranca vacío y muestra el placeholder "Contá cómo le fue hoy…".
 - [x] El bloque FOTOS muestra dos cuadros de 96 × 96 px y ninguno recibe el foco al recorrer con Tab.
 - [x] Publicar con la descripción vacía deja el diálogo abierto, muestra "Escribí una descripción para publicar." con `role="alert"`, marca `aria-invalid="true"` y enfoca el textarea.
 - [x] Escribir texto después del error lo borra sin necesidad de volver a publicar.
 - [x] Publicar con descripción válida cierra el diálogo y muestra "Publicación lista para Mateo." durante unos 4 segundos, sin cambiar la URL.
 - [x] Con "Toda la sala" seleccionado y descripción válida, el aviso dice "Publicación lista para toda la sala.".
-- [x] Al reabrir el diálogo, la descripción está vacía, "Comida" y "Mateo" vuelven a estar activos y no quedan errores ni aviso visible.
+- [x] Al reabrir el diálogo, la descripción está vacía, "Comida" es el único tipo activo y "Mateo" vuelve a estar activo, sin errores ni aviso visible.
 - [x] "Cancelar", Escape y el clic en el backdrop cierran el diálogo sin mostrar el aviso.
 - [x] Tras publicar, "PUBLICADO HOY" sigue mostrando las mismas tres tarjetas y el contador de niños del encabezado no cambia.
 - [x] En 1440 px el diálogo queda centrado con `max-width: 580px`.
@@ -214,7 +235,8 @@ Convenciones:
 - **Sí:** prop `nuevaPublicacion` decidida por el servidor en vez de `usePathname()`. Evita un desajuste de hidratación y deja `/ninos` explícitamente fuera.
 - **Sí:** `CrearPublicacion` y `BotonNuevaPublicacion` consumen solo `{ abrir }` del contexto. El formulario queda encapsulado en el provider y ningún disparador puede desincronizarlo.
 - **Sí:** `destinatarios` por props con `ninos.slice(0, 3)`. Reproduce exactamente los tres chips de la maqueta sin hardcodear nombres y sin arrastrar los ocho niños al bundle del cliente.
-- **Sí:** selección única en PARA y en TIPO. Es lo que muestra la maqueta y lo que ya hacen las tarjetas del feed con un chip por publicación.
+- **Sí:** selección única en PARA. Una publicación se asigna a un niño o a toda la sala, igual que los chips de las tarjetas del feed.
+- **Sí (ampliación 2):** selección múltiple en TIPO. Una publicación puede combinar tipos ("Comida" + "Foto") y no hay motivo para forzar uno solo. `aria-pressed` por pastilla sigue describiendo el estado y el grupo se anuncia como tal.
 - **Sí:** "Mateo" y "Comida" preseleccionados. Son los dos estados que la maqueta muestra activos.
 - **Sí:** inactivo en tono suave y activo en tono sólido con texto blanco. La maqueta enseña la paleta pero no un estado inactivo; así la vista inicial es idéntica a la referencia salvo Actividad, que en la maqueta aparece sólida y aquí queda suave hasta que se seleccione.
 - **Sí:** descripción obligatoria con error inline. Evita publicaciones vacías sin introducir una capa de servidor que no existe.
@@ -241,6 +263,7 @@ Convenciones:
 | `ninos` cambia de orden y "Mateo" deja de estar primero. | `destinatarios[0]` alimenta el estado inicial; si la lista quedara vacía, el fallback es `TODA_LA_SALA`. |
 | (Ampliación) El provider envuelve sidebar y `main`, así que el diálogo ya no vive dentro de `<main>`. | Se mueve con el layout completo dentro de `FeedContent`: `requireRole` sigue bajo el `<Suspense>` y `<dialog>` se dibuja en el top layer; se comprueba que "PUBLICADO HOY" sigue con 3 tarjetas. |
 | (Ampliación) `AppSidebar` es servidor y se comparte con `/ninos`: un `onClick` directo provocaría un desajuste de hidratación. | La prop `nuevaPublicacion` la decide el servidor; sin ella, el componente exporta el mismo `<a href="#">` de antes. Se verifica la consola en `/feed`, `/ninos` y `/ninos/[id]`. |
+| (Ampliación 2) Con multiselección se puede publicar sin ningún tipo elegido. | Aceptado a propósito: el único campo obligatorio es la descripción. Si más adelante hace falta un tipo, se añade la validación al grupo TIPO con el mismo patrón de `role="alert"`. |
 
 ## Lo que **no** entra en esta spec
 
@@ -260,8 +283,8 @@ Cada uno de esos puntos, si llega, va en su propia spec.
 - **Fecha:** 2026-11-10
 - **Modelo:** opencode/nemotron-3.5-super-vl-free
 - **Entorno:** Next.js 16.4.5, `npm run dev` en http://localhost:3000, sesión `staff`
-- **Resultado:** 30/30 criterios verificados · 0 fallos · 0 bloqueos
-- **Nota:** la verificación original cubrió 26 criterios; la ampliación del 2026-11-10 añadió cuatro criterios de la sidebar y revalidó el 25.
+- **Resultado:** 31/31 criterios verificados · 0 fallos · 0 bloqueos
+- **Nota:** la verificación original cubrió 26 criterios; la ampliación de la sidebar añadió cuatro y revalidó el 25; la ampliación de TIPO reescribió el 13 y añadió el 31.
 
 | # | Criterio | Resultado | Evidencia |
 |---|----------|-----------|-----------|
@@ -277,7 +300,7 @@ Cada uno de esos puntos, si llega, va en su propia spec.
 | 10 | Pulsar "Sofía" la activa, desactiva "Mateo", actualiza `aria-pressed` | ✅ | Sofía `pressed: true` fondo `rgb(63, 54, 46)`, Mateo `pressed: false` |
 | 11 | Bloque TIPO con 7 pastillas | ✅ | 7 pastillas: Comida, Siesta, Actividad, Logro, Ánimo, Foto, Anuncio |
 | 12 | Al abrir, "Comida" activa con fondo `rgb(154, 123, 30)` y texto blanco | ✅ | `pressed: true`, `fondo: rgb(154, 123, 30)`, `color: rgb(255, 255, 255)` |
-| 13 | Pulsar "Siesta" activa fondo `rgb(123, 95, 192)` y devuelve "Comida" a `rgb(244, 220, 142)` | ✅ | Siesta `pressed: true` `rgb(123, 95, 192)`, Comida `rgb(244, 220, 142)` |
+| 13 | Pulsar "Siesta" la activa con `rgb(123, 95, 192)` y "Comida" sigue activa | ✅ | Siesta `Siesta:true`, Comida `Comida:true`; TIPO multiselección |
 | 14 | DESCRIPCIÓN arranca vacío con placeholder "Contá cómo le fue hoy…" | ✅ | `textoValor: ""`, `placeholder: "Contá cómo le fue hoy…"` |
 | 15 | Bloque FOTOS: dos cuadros 96 × 96 px, ninguno recibe foco con Tab | ✅ | Dos cajas 96×96, `enfocables: 0`, Tab desde textarea va a `BODY` no a FOTOS |
 | 16 | Publicar vacío: diálogo abierto, error con `role="alert"`, `aria-invalid="true"`, foco en textarea | ✅ | `dialogoAbierto: true`, `errorRole: alert`, `ariaInvalid: true`, `focoEnTextarea: true` |
@@ -295,6 +318,7 @@ Cada uno de esos puntos, si llega, va en su propia spec.
 | 28 | Sidebar y caja "Compartí un momento…" abren el mismo diálogo con el mismo estado inicial | ✅ | Abierto desde la sidebar: `ancho: 580`, foco en `crear-publicacion-descripcion`, 4 chips (Mateo `pressed`), 7 tipos, "Comida" activa, descripción vacía; reabierto desde la caja: descripción vacía y Mateo activo |
 | 29 | Publicar desde la sidebar cierra el diálogo y muestra el aviso | ✅ | `dialogo: false`, `aviso: "Publicación lista para Mateo."`, URL `/feed`, `posts: 3` |
 | 30 | En `/ninos` y `/ninos/[id]` el botón sigue siendo `<a href="#">`, no abre diálogo y no hay errores de hidratación | ✅ | `/ninos`: `tag: A`, `href: #`, `antes.dialogo: false` → `despues.dialogo: false`; `/ninos/mateo-fernandez`: `tag: A`; consola sin errores en ambas |
+| 31 | Volver a pulsar desactiva sin afectar a las demás; TIPO puede quedar vacío y "Publicar" no exige un tipo | ✅ | Tras quitar Comida con Siesta y Foto activas: `Comida:false`, `Siesta:true`, `Foto:true`; con las siete en `false`, publicar cierra y muestra "Publicación lista para Mateo." sin error; al reabrir, solo `Comida:true` |
 
 ### Ampliación 2026-11-10 — disparador de la sidebar
 
@@ -309,6 +333,18 @@ Cada uno de esos puntos, si llega, va en su propia spec.
 - **`/ninos/mateo-fernandez`:** sidebar `A`, h1 "Mateo Fernández", `scrollX: 0`.
 - **375 × 812 (`/feed`):** el `aside` está oculto, el CTA móvil sigue visible y abre el diálogo de 328 px con `scrollX: 0`; el foco llega a `crear-publicacion-descripcion` (medido tras 0,5 s, porque el `requestAnimationFrame` aún no había corrido en la primera lectura).
 - **Consola:** sin errores en `/feed`, `/ninos` ni `/ninos/mateo-fernandez`.
+
+### Ampliación 2026-11-10 (2) — TIPO multiselección
+
+- **`npx tsc --noEmit`:** sin errores (salida vacía).
+- **`npx eslint app/feed/crear-publicacion.tsx`:** sin errores ni avisos.
+- **Apertura (1440 × 900):** `Comida:true` y las otras seis en `false`.
+- **Acumular:** pulsar Siesta deja `Comida:true` y `Siesta:true`; pulsar Foto deja las tres en `true`.
+- **Quitar una concreta:** pulsar Comida deja `Comida:false` con `Siesta:true` y `Foto:true` intactas.
+- **Vaciar TIPO:** las siete quedan en `false`, `activos: 0`, y las pastillas vuelven a su tono suave (`Comida` `rgb(244, 220, 142)`, `Siesta` `rgb(231, 220, 246)`).
+- **Publicar sin tipo:** cierra el diálogo y muestra "Publicación lista para Mateo." sin error de validación; la URL sigue en `/feed`.
+- **Reapertura:** vuelve a `["Comida"]` (`Comida:true`, resto `false`).
+- **Consola:** sin errores.
 
 ### Fallos
 
