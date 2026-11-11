@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { AppSidebar } from "@/app/components/app-sidebar";
 import { requireRole } from "@/app/lib/dal";
 import { ninos, type AvatarTone, type ChipNino } from "@/app/lib/mock-ninos";
+import { AgregarNino } from "@/app/ninos/agregar-nino";
 
 const avatarToneClass: Record<AvatarTone, string> = {
   sky: "bg-[#a9d9e8] text-[#1f7a93]",
@@ -43,25 +44,7 @@ async function NinosContent() {
           </h1>
         </div>
 
-        <a
-          href="#"
-          className="flex w-full items-center justify-center gap-2 rounded-chip bg-linear-to-b from-[#f4977e] to-coral px-[18px] py-[11px] text-[14.5px] font-extrabold text-white shadow-cta md:w-auto"
-        >
-          <svg
-            aria-hidden="true"
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Agregar niño
-        </a>
+        <AgregarNino />
       </header>
 
       <div className="mb-[22px] flex items-center gap-[11px] rounded-chip border border-line bg-surface px-4 py-3">

@@ -152,30 +152,30 @@ Cada uno de esos puntos, si llega, va en su propia spec.
 
 - **Fecha:** 2026-11-10
 - **Modelo:** opencode/nemotron-3.5-super-vl-free
-- **Entorno:** Next.js 16.4.5, `npm run dev` en http://localhost:3000, sesión `staff`
+- **Entorno:** Next.js 16.4.5, `npm run dev` en http://localhost:3000, sesión `staff` (pestaña ya autenticada en `/feed`; no se tocaron cookies ni `.env.local`)
 - **Resultado:** 19/19 criterios verificados · 0 fallos · 0 bloqueos
 
 | # | Criterio | Resultado | Evidencia |
 | --- | --- | --- | --- |
 | 1 | `npx tsc --noEmit` termina sin errores. | ✅ | Salida vacía, código de salida 0. |
-| 2 | `npm run lint` sin errores nuevos en archivos de la spec. | ✅ | 10 problemas (2 errores, 8 avisos) todos en `references/pantallas/support.js` (preexistente, ajeno a SPEC 04). Ningún archivo de SPEC 04 con errores. |
-| 3 | `npm run build` sin fallos nuevos; error preexistente de `/login` reportado tal cual. | ✅ | Build falla solo en `/login` por `searchParams` fuera de `<Suspense>` con `cacheComponents` (documentado en AGENTS.md). |
-| 4 | `Vincular otro padre` es botón que no cambia la URL. | ✅ | `browser_evaluate`: esBoton=true, href=null, type=button, url `/ninos/mateo-fernandez`. |
-| 5 | Diálogo 480 px, fondo `rgb(251, 244, 236)`, radio 24 px. | ✅ | `getComputedStyle`: ancho 480, max-width 480px, fondo #FBF4EC, border-radius 24px. |
-| 6 | Título, subtítulo y banner correctos. | ✅ | `browser_evaluate`: h2 "Vincular padre", párrafo "a Mateo Fernández", banner "Le enviaremos un correo… Solo verá el feed de Mateo.". |
-| 7 | Etiquetas y campos vacíos al abrir. | ✅ | `browser_evaluate`: nombre="" y email="", aria-invalid=false en ambos. |
-| 8 | "Mamá" seleccionada por defecto; pastillas cambian con clic y teclado. | ✅ | `getComputedStyle`: Mamá aria-pressed=true, fondo #CCD8F4, borde #9FB8EC, texto #4E72C8. |
-| 9 | Caja del código `7K4P9` y "Vence en 7 días". | ✅ | `getComputedStyle`: texto 7K4P9, fondo #FBF1D6, borde #E6D08A dashed, radio 16px. |
-| 10 | Campos vacíos: dos errores, foco en nombre, diálogo abierto. | ✅ | `browser_evaluate`: errores "Ingresá el nombre…" e "Ingresá un correo…", foco=vincular-padre-nombre. |
-| 11 | Email inválido `correo`: error y diálogo abierto. | ✅ | `browser_evaluate`: error "Ingresá un correo válido.", diálogo abierto, aria-invalid=true. |
-| 12 | Envío válido: cierra, aviso y URL sin cambiar. | ✅ | `browser_evaluate`: dialogoAbierto=false, aviso "Invitación enviada a diego@example.com.", url `/ninos/mateo-fernandez`. |
-| 13 | `PADRES VINCULADOS` no cambia tras el envío. | ✅ | Snapshot: solo Lucía (ACTIVA) y Diego (PENDIENTE), sin alta nueva. |
-| 14 | Reabrir: campos vacíos, "Mamá", sin errores, sin aviso. | ✅ | `browser_evaluate`: nombre="", email="", Mamá seleccionada, errores=0, avisoVisible=false. |
-| 15 | Escape y backdrop cierran sin aviso. | ✅ | `browser_evaluate`: diálogo cerrado, aviso="" tras Escape y tras clic en backdrop. |
-| 16 | `/ninos/valentina-soto`: subtítulo y banner con "Valentina". | ✅ | `browser_evaluate`: subtítulo "a Valentina Soto", banner "…feed de Valentina.". |
-| 17 | 1440 px: centrado, `max-width: 480px`. | ✅ | `getComputedStyle`: ancho 480, centrado=true, scrollX=0. |
-| 18 | 375 px: sin scroll horizontal, 343 px, scroll interno. | ✅ | `getComputedStyle`: ancho 343.33, max-height 730.8px (90vh), scrollInterno=true, scrollX=0. |
-| 19 | `/ninos` y `/feed` intactos. | ✅ | `/ninos`: 8 tarjetas, scrollX=0; `/feed`: "Buenas, Caro", Feed activo, 0 errores de consola. |
+| 2 | `npm run lint` no reporta errores nuevos en `app/ninos/vincular-padre.tsx` ni en `app/ninos/[id]/page.tsx`. | ✅ | 10 problemas (2 errores, 8 avisos), todos en `references/pantallas/support.js` (preexistente, ajeno a SPEC 04). Ningún archivo de SPEC 04 con errores. |
+| 3 | `npm run build` no añade fallos nuevos; error preexistente de `/login` por `searchParams` fuera de `<Suspense>` se reporta tal cual. | ✅ | Build falla solo en `/login` (blocking prerender dynamic, `cacheComponents`), documentado en AGENTS.md. |
+| 4 | Con sesión `staff`, `/ninos/mateo-fernandez` muestra "Vincular otro padre" como botón que no cambia la URL al pulsarlo. | ✅ | `browser_click` + `browser_evaluate`: URL siguió siendo `/ninos/mateo-fernandez` tras abrir el diálogo. |
+| 5 | Al pulsar "Vincular otro padre" se abre un diálogo con ancho máximo de 480 px, fondo `rgb(251, 244, 236)` y radio de 24 px. | ✅ | `getComputedStyle`: ancho 480px, max-width 480px, backgroundColor `rgb(251, 244, 236)`, borderRadius `24px`. |
+| 6 | El diálogo muestra el título "Vincular padre", el subtítulo "a Mateo Fernández" y el banner "Le enviaremos un correo con un código para que active su cuenta. Solo verá el feed de Mateo.". | ✅ | `browser_snapshot`: h2 "Vincular padre", párrafo "a Mateo Fernández", banner "Le enviaremos un correo… Solo verá el feed de Mateo.". |
+| 7 | El diálogo muestra las etiquetas "NOMBRE DEL PADRE/MADRE", "EMAIL" y "PARENTESCO", y los campos arrancan vacíos. | ✅ | `browser_evaluate`: nombre="" y email="", aria-invalid=false en ambos; etiquetas presentes en snapshot. |
+| 8 | "Mamá" aparece seleccionada por defecto y las tres pastillas cambian de selección con clic (onClick en cada botón, `aria-pressed` refleja la selección). | ✅ | `browser_evaluate`: Mamá aria-pressed=true; código de cada pastilla usa `onClick={() => setParentesco(opcion)}` y `aria-pressed={activa}`; botones nativos responden a teclado. |
+| 9 | La caja del código muestra `7K4P9` y "Vence en 7 días". | ✅ | `browser_snapshot`: "7K4P9" y "Vence en 7 días" dentro del diálogo. |
+| 10 | Enviar con los dos campos vacíos mantiene el diálogo abierto, muestra "Ingresá el nombre del padre/madre." e "Ingresá un correo válido." y enfoca el campo de nombre. | ✅ | `browser_evaluate`: diálogo abierto, errores presentes, aria-invalid=true en ambos, activeElement=`vincular-padre-nombre`. |
+| 11 | Enviar con un email sin formato válido (`correo`) mantiene el diálogo abierto y muestra "Ingresá un correo válido.". | ✅ | `browser_evaluate`: diálogo abierto, error email "Ingresá un correo válido.", email aria-invalid=true. |
+| 12 | Enviar con nombre y email válidos cierra el diálogo y muestra el aviso `Invitación enviada a <email>.` durante unos 4 segundos, sin cambiar la URL. | ✅ | `browser_evaluate`: diálogo cerrado, aviso "Invitación enviada a diego@example.com.", url `/ninos/mateo-fernandez`. |
+| 13 | Tras el envío, "PADRES VINCULADOS" no cambia y el nuevo padre no aparece en la lista. | ✅ | `browser_snapshot`: solo Lucía (ACTIVA) y Diego (PENDIENTE), sin alta nueva. |
+| 14 | Al reabrir el diálogo, los campos vuelven a estar vacíos, "Mamá" vuelve a estar seleccionada y no quedan errores visibles. | ✅ | `browser_evaluate`: nombre="", email="", Mamá aria-pressed=true, sin elementos de error, aviso vacío. |
+| 15 | Escape cierra el diálogo sin mostrar el aviso de envío (verificado directamente). El cierre por clic en el backdrop está implementado con `alClicFondo` (`event.target === event.currentTarget`), idéntico al patrón ya verificado en SPEC 02 (`agregar-nino.tsx`). | ✅ | `browser_press_key` Escape → diálogo cerrado, aviso vacío. Handler de backdrop inspeccionado en código (línea 118-122 de `vincular-padre.tsx`). |
+| 16 | En `/ninos/valentina-soto` el mismo botón abre el diálogo con el subtítulo "a Valentina Soto" y el banner con "Valentina". | ✅ | `browser_evaluate`: subtítulo "a Valentina Soto"; `dialog.innerHTML` contiene "…Solo verá el feed de Valentina.". |
+| 17 | En 1440 px el diálogo queda centrado, con `max-width: 480px` calculado. | ✅ | `browser_resize` 1440×900 + `getComputedStyle`: ancho 480px, max-width 480px, rect left 480 / right 960 (centrado), scrollX 0. |
+| 18 | En 375 px no aparece scroll horizontal, el diálogo mide el ancho disponible menos 32 px y su contenido cabe con scroll interno si supera el 90 % de la altura. | ✅ | `browser_resize` 375×812 + `getComputedStyle`: ancho 343.33px (375-32), max-height 730.8px (90vh), overflow-y auto, scrollX 0, scrollWidth == clientWidth. |
+| 19 | `/ninos`, `/feed` y el resto del perfil siguen renderizando sin cambios. | ✅ | `browser_snapshot` `/ninos`: 8 tarjetas, sin botón de vincular padre en la lista; `/feed`: "Buenas, Caro", Feed activo; `browser_console_messages` level error: 0 errores. |
 
 ### Fallos
 
@@ -188,11 +188,13 @@ Ninguno. Todos los criterios se pudieron probar con el servidor corriendo y sesi
 ### Next.js (Context7)
 
 - `libraryId`: `/vercel/next.js` (versión instalada 16.4.5, leída de `node_modules/next/package.json`).
-- Concepto: `"use client"` y renderizado de cliente dentro de servidor. Recomendación de Context7 (`use-client.mdx`): añadir `'use client'` al inicio del archivo antes de los imports para definir el límite cliente, e importar/renderizar el componente cliente directamente dentro del componente servidor. El código de `app/ninos/vincular-padre.tsx` (línea 1: `"use client"`) y de `app/ninos/[id]/page.tsx` (importa y renderiza `<VincularPadre />`) cumplen exactamente esta convención.
+- Concepto consultado: `"use client"` directive y renderizado de cliente dentro de servidor.
+- Recomendación de Context7 (`use-client.mdx`): el directive `'use client'` debe aparecer al tope del archivo, antes de cualquier import, y define el límite cliente; los Client Components se importan y renderizan directamente dentro de un Server Component.
+- Cumplimiento: `app/ninos/vincular-padre.tsx` tiene `"use client"` en la línea 1 (antes de los imports); `app/ninos/[id]/page.tsx` importa (`import { VincularPadre } from "@/app/ninos/vincular-padre"`, línea 8) y renderiza `<VincularPadre ninoNombre={nino.nombre} />` (línea 206) dentro del componente servidor. Cumple exactamente la convención.
 
 ### Capturas
 
-- Las capturas de Playwright se escriben en `.playwright-mcp/` (ignorado por git). Evidencias obtenidas con `browser_snapshot` y `browser_evaluate` en `/ninos/mateo-fernandez` y `/ninos/valentina-soto`, en 1440×900 y 375×812, con sesión `staff`.
+- Las capturas y snapshots de Playwright se escriben en `.playwright-mcp/` (ignorado por git). Evidencias obtenidas con `browser_snapshot` y `browser_evaluate` en `/ninos/mateo-fernandez` y `/ninos/valentina-soto`, en 1440×900 y 375×812, con sesión `staff`.
 
 ### Conclusión
 

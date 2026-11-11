@@ -1,0 +1,43 @@
+name: opencode
+
+# Agente de OpenCode en GitHub: responde a los comentarios que empiezan por
+# `/oc` o `/opencode` en issues, PRs y revisiones de código.
+#
+# Antes de usarlo:
+#   1. Instalar la app https://github.com/apps/opencode-agent en este repo.
+#   2. Crear una API key gratuita en https://opencode.ai/console (workspace Personal)
+#      y guardarla como secret con el nombre OPENCODE_API_KEY en
+#      Settings > Secrets and variables > Actions.
+#   3. Hacer commit y push de este archivo.
+#
+# El modelo es de la capa gratuita de OpenCode Console: no requiere créditos
+# ni suscripción. Se puede cambiar por otro `opencode/<modelo>` si se quiere.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  opencode:
+    if: |
+      contains(github.event.comment.body, '/oc') ||
+      contains(github.event.comment.body, '/opencode')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # canjea un token OIDC por el token de la app de OpenCode
+      contents: read # permite el checkout de repos privados
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/deepseek-v4.1-flash-free

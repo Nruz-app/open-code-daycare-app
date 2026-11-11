@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { BotonNuevaPublicacion } from "@/app/feed/crear-publicacion";
+
 type NavKey = "feed" | "ninos" | "avisos" | "cuenta";
 
 type NavItem = {
@@ -94,9 +96,14 @@ const navItems: NavItem[] = [
 type AppSidebarProps = {
   /** Ítem de navegación que se muestra como activo. */
   active?: NavKey;
+  /** En `/feed` el botón de la sidebar abre el diálogo de nueva publicación. */
+  nuevaPublicacion?: boolean;
 };
 
-export function AppSidebar({ active = "feed" }: AppSidebarProps) {
+export function AppSidebar({
+  active = "feed",
+  nuevaPublicacion = false,
+}: AppSidebarProps) {
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-line bg-surface px-4 pt-2.5 md:hidden">
@@ -177,24 +184,7 @@ export function AppSidebar({ active = "feed" }: AppSidebarProps) {
         </div>
       </a>
 
-      <a
-        href="#"
-        className="mb-[18px] flex w-full items-center justify-center gap-2 rounded-chip bg-linear-to-b from-[#f4977e] to-coral px-3 py-3 text-[14.5px] font-extrabold text-white shadow-cta"
-      >
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        Nueva publicación
-      </a>
+      <BotonNuevaPublicacion activo={nuevaPublicacion} />
 
       <nav
         aria-label="Navegación principal"
