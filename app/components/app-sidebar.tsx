@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { LogoutButton } from "@/app/components/logout-button";
 import { BotonNuevaPublicacion } from "@/app/feed/crear-publicacion";
 
 type NavKey = "feed" | "ninos" | "avisos" | "cuenta";
@@ -96,7 +97,7 @@ const navItems: NavItem[] = [
 type AppSidebarProps = {
   /** Ítem de navegación que se muestra como activo. */
   active?: NavKey;
-  /** En `/feed` el botón de la sidebar abre el diálogo de nueva publicación. */
+  /** Habilita el botón de nueva publicación (requiere el provider en el árbol). */
   nuevaPublicacion?: boolean;
 };
 
@@ -132,6 +133,7 @@ export function AppSidebar({
           <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#f2937a] font-display text-sm font-semibold text-white">
             C
           </div>
+          <LogoutButton />
         </div>
 
         <nav
@@ -216,25 +218,9 @@ export function AppSidebar({
             <div className="text-sm font-extrabold text-ink">Caro Giménez</div>
             <div className="text-xs text-ink-soft">Maestra · Soles</div>
           </div>
-          <a
-            href="#"
-            title="Cerrar sesión"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-[10px] bg-cream text-ink-muted"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-            </svg>
-          </a>
+          <LogoutButton />
         </div>
+        <LogoutButton conTexto />
       </div>
     </aside>
     </>

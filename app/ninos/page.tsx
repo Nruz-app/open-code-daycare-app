@@ -129,7 +129,7 @@ async function NinosContent() {
 export default function NinosPage() {
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">
-      <AppSidebar active="ninos" />
+      <AppSidebar active="ninos" nuevaPublicacion />
       <main className="min-w-0 flex-1 md:h-screen md:overflow-y-auto">
         <Suspense fallback={null}>
           <NinosContent />

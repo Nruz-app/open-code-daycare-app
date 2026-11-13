@@ -31,7 +31,39 @@ La versión original fijaba selección única en TIPO. En uso real una publicaci
 - `aria-pressed` sigue siendo el estado correcto: cada pastilla es un botón de alternancia dentro del `role="group"` "TIPO".
 - Al abrir y al cerrar el diálogo el estado vuelve a `["Comida"]`, igual que antes.
 - Se puede dejar TIPO vacío: no hay validación de tipo y "Publicar" solo exige descripción.
-- PARA no cambia: sigue con un único destinatario y "Toda la sala" excluyente.
+- PARA no cambia en esta ampliación; la multiselección de destinatarios llega en la ampliación del 2026-11-12.
+
+## Ampliación 2026-11-11 — sidebar en todas las pantallas de niños
+
+En uso real el botón seguía muerto en `/ninos` y `/ninos/[id]`: la sidebar se comparte entre las tres pantallas del staff y el botón solo se habilitaba en `/feed`. La ampliación lo conecta en todas:
+
+- `app/components/nueva-publicacion-provider.tsx` es un componente **servidor** que calcula los tres destinatarios desde `ninos` y envuelve el árbol con `CrearPublicacionProvider`. Es la única fuente de ese mapeo: `/feed` también lo usa.
+- `app/ninos/layout.tsx` envuelve listado y perfil con ese provider, sin tocar el JSX de las páginas ni mover `requireRole`.
+- `AppSidebar` recibe `nuevaPublicacion` en las tres pantallas; el `<a href="#">` queda solo como respaldo defensivo si algún día se usa fuera de un provider.
+- El estado del formulario sigue siendo local a cada montaje: abrir desde Niños no comparte borrador con el feed.
+
+Sigue fuera de alcance: persistencia, subida de fotos e insertar en "PUBLICADO HOY".
+
+## Ampliación 2026-11-12 — PARA con selección múltiple
+
+La versión original fijaba un único destinatario en PARA. En uso real una publicación puede ir
+dirigida a varios niños (por ejemplo, una foto de la actividad de Mateo y Sofía), así que los chips
+de nombre pasan a comportarse como interruptores:
+
+- El estado es `seleccionados: string[]`, no `destinatario: string`. Arranca con
+  `[destinatarios[0]?.id ?? TODA_LA_SALA]` (Mateo) y se limpia igual al cerrar el diálogo.
+- `alternarDestinatario(id)` agrega el nombre si no estaba y lo quita si ya estaba, sin tocar los
+  demás.
+- "Toda la sala" es **excluyente**: al activarlo la selección queda en `[TODA_LA_SALA]`; al pulsar
+  un nombre se descarta `TODA_LA_SALA` y se alterna el nombre. Volver a pulsar "Toda la sala" la
+  desactiva.
+- Se permite dejar PARA vacío. "Publicar" solo exige descripción, igual que TIPO.
+- `aria-pressed` por chip sigue siendo el estado correcto dentro del `role="group"` "PARA".
+- El aviso lista los nombres en español con `Intl.ListFormat("es", { type: "conjunction" })`:
+  "Publicación lista para Mateo y Sofía." / "… para Mateo, Sofía y Benjamín.". Con "Toda la sala"
+  dice "… para toda la sala."; con la selección vacía, "Publicación lista.".
+- Los criterios nuevos quedan `[ ]` hasta que `/spec-verify` los pruebe. El estado de la spec no
+  cambia.
 
 ## Alcance
 
@@ -40,7 +72,7 @@ La versión original fijaba selección única en TIPO. En uso real una publicaci
 - Componente cliente nuevo `app/feed/crear-publicacion.tsx` con los dos disparadores y el `<dialog>`.
 - Sustitución en `app/feed/page.tsx` de los dos `<a href="#">` por un único `<CrearPublicacion destinatarios={…} />`, con la lista calculada como `ninos.slice(0, 3)`.
 - Diálogo de 580 px de ancho máximo con header de tres partes: "Cancelar" a la izquierda, "Nueva publicación" al centro y "Publicar" a la derecha.
-- Bloque "PARA" con los chips de Mateo, Sofía y Benjamín (inicial sobre su tono de avatar) y el chip "Toda la sala"; selección única.
+- Bloque "PARA" con los chips de Mateo, Sofía y Benjamín (inicial sobre su tono de avatar) y el chip "Toda la sala"; selección múltiple con "Toda la sala" excluyente (ampliación 2026-11-12).
 - Bloque "TIPO" con las siete pastillas Comida, Siesta, Actividad, Logro, Ánimo, Foto y Anuncio; selección múltiple e independiente por pastilla.
 - Bloque "DESCRIPCIÓN" con un `<textarea>` que arranca vacío y placeholder "Contá cómo le fue hoy…".
 - Bloque "FOTOS" con los dos cuadros de 96 × 96 px de la maqueta, inertes.
@@ -124,9 +156,9 @@ type Errores = {
 Estado local, dentro de `CrearPublicacionProvider`:
 
 ```ts
-const [destinatario, setDestinatario] = useState<string>(
+const [seleccionados, setSeleccionados] = useState<string[]>([
   destinatarios[0]?.id ?? TODA_LA_SALA,
-);
+]);
 const [tipos, setTipos] = useState<TipoPublicacion[]>(["Comida"]);
 const [descripcion, setDescripcion] = useState("");
 const [errores, setErrores] = useState<Errores>({});
@@ -143,6 +175,25 @@ function alternarTipo(opcion: TipoPublicacion) {
       ? actuales.filter((tipoActual) => tipoActual !== opcion)
       : [...actuales, opcion],
   );
+}
+
+/** Multiselección de nombres; "Toda la sala" es excluyente. */
+function alternarDestinatario(id: string) {
+  if (id === TODA_LA_SALA) {
+    setSeleccionados((actuales) =>
+      actuales.includes(TODA_LA_SALA) ? [] : [TODA_LA_SALA],
+    );
+
+    return;
+  }
+
+  setSeleccionados((actuales) => {
+    const sinSala = actuales.filter((actual) => actual !== TODA_LA_SALA);
+
+    return sinSala.includes(id)
+      ? sinSala.filter((actual) => actual !== id)
+      : [...sinSala, id];
+  });
 }
 ```
 
@@ -170,11 +221,11 @@ Colores de las pastillas de TIPO:
 Convenciones:
 
 - `destinatarios` llega por props: `app/feed/page.tsx` mapea `ninos.slice(0, 3)` a `{ id, nombre: nino.nombre.split(" ")[0], inicial, avatarTone }`. El servidor decide la lista; el componente cliente no importa `mock-ninos.ts` salvo para el tipo `AvatarTone`.
-- `destinatario` guarda el `id` del niño o la constante `TODA_LA_SALA`, y arranca en el primero de la lista (Mateo), igual que la maqueta.
+- `seleccionados` guarda los `id` de los niños y/o la constante `TODA_LA_SALA`. Arranca con el primero de la lista (Mateo), igual que la maqueta, y "Toda la sala" nunca convive con nombres.
 - `tipos` es un array y arranca en `["Comida"]`, la pastilla sólida de la referencia. Cada pastilla se alterna de forma independiente; se permite dejar el array vacío.
 - `descripcion` arranca vacía: el texto de la maqueta es contenido de ejemplo, no un valor por defecto.
 - Los tonos de avatar se resuelven con un mapa local `Record<AvatarTone, string>` copiado de `app/ninos/page.tsx`: `sky` `#A9D9E8` / `#1F7A93`, `pink` `#F4B8CC` / `#C44A7A`, `mint` `#B9DEC4` / `#3E8B62`, `sand` `#F4DC8E` / `#9A7B1E`, `lilac` `#C9B6E8` / `#7B5FC0`.
-- El aviso es `Publicación lista para ${nombre}.`, donde `nombre` es el nombre del niño o "toda la sala", y se apaga solo a los 4 segundos.
+- El aviso es `Publicación lista para ${destino}.`, donde `destino` es la lista de nombres formateada con `Intl.ListFormat("es", { type: "conjunction" })` o "toda la sala"; con la selección vacía es `Publicación lista.`. Se apaga solo a los 4 segundos.
 - El único mensaje de error es `Escribí una descripción para publicar.`.
 
 ## Plan de implementación
@@ -183,10 +234,10 @@ Convenciones:
 2. En `app/feed/page.tsx`, importar `ninos`, calcular `destinatarios` con `ninos.slice(0, 3)` dentro de `FeedContent` y envolver sidebar + `main` con `<CrearPublicacionProvider destinatarios={…}>`, manteniendo `requireRole` dentro del `<Suspense>`. Manual: el feed se ve igual y el build no cambia de comportamiento.
 3. Renderizar la caja "Compartí un momento…" y el CTA coral "Nueva publicación" con `md:hidden` desde `CrearPublicacion`, ambos con `onClick={abrir}` del contexto. Manual: en 1440 px el CTA no se renderiza; en 375 px ambos disparadores abren el mismo diálogo.
 4. Añadir el header del diálogo: "Cancelar" (`type="button"`, cierre), `<h2 id="crear-publicacion-titulo">Nueva publicación</h2>` y "Publicar" (`type="button"`), con `aria-labelledby`, `border-b border-line` y padding `18px` en móvil y `26px` desde `sm`. Manual: los tres elementos quedan alineados como en la maqueta.
-5. Añadir el bloque PARA: etiqueta `PARA`, chips de `destinatarios` con inicial de 26 px sobre su tono y el nombre, más el chip "Toda la sala" sin avatar; `aria-pressed`, selección única y estado activo `#3F362E`. Manual: pulsar Sofía desactiva Mateo y viceversa.
+5. Añadir el bloque PARA: etiqueta `PARA`, chips de `destinatarios` con inicial de 26 px sobre su tono y el nombre, más el chip "Toda la sala" sin avatar; `aria-pressed`, multiselección con `alternarDestinatario` y estado activo `#3F362E`. Manual: pulsar Sofía mantiene Mateo activo; pulsar "Toda la sala" limpia los nombres.
 6. Añadir el bloque TIPO con las siete pastillas y la tabla de colores; `aria-pressed` y multiselección con `alternarTipo`, que agrega o quita cada pastilla sin tocar las demás. Manual: al abrir, solo Comida está sólida; al pulsar Siesta, ambas quedan sólidas; al volver a pulsar Comida, solo Siesta sigue activa.
 7. Añadir el bloque DESCRIPCIÓN: `<textarea>` controlado, `min-h-[120px]`, `resize-y`, radio 14 px, borde `#EADFD0` y placeholder "Contá cómo le fue hoy…", con `mb-[22px]`.
-8. Implementar la publicación con el `Publicar` del header: recortar la descripción; si queda vacía, pintar el error inline, marcar `aria-invalid`, `aria-describedby` y enfocar el textarea sin cerrar; si es válida, `setAviso(...)`, `cerrar()` y un `useEffect` que limpia el aviso a los 4 segundos. `onClose` limpia descripción, tipo, destinatario y errores, y no toca el aviso. Manual: publicar sin texto muestra el error; publicar con texto cierra y muestra el aviso.
+8. Implementar la publicación con el `Publicar` del header: recortar la descripción; si queda vacía, pintar el error inline, marcar `aria-invalid`, `aria-describedby` y enfocar el textarea sin cerrar; si es válida, `setAviso(...)`, `cerrar()` y un `useEffect` que limpia el aviso a los 4 segundos. `onClose` limpia descripción, tipos, destinatarios y errores, y no toca el aviso. Manual: publicar sin texto muestra el error; publicar con texto cierra y muestra el aviso.
 9. Añadir el bloque FOTOS: dos `<div>` de 96 × 96 px con `rounded-[14px]`, el primero con fondo `#F4ECE1`, borde `#ECE0D0` y el icono de imagen en `#CBB89F`; el segundo con borde punteado `#DBCDBA`, icono `+` en `#C5503A` y la etiqueta "Agregar". Sin foco, sin handler y con `aria-hidden="true"` en el contenedor.
 10. Ajustar el diálogo y los cierres: `w-[calc(100%-32px)] max-w-[580px]`, `max-h-[90vh] overflow-y-auto overscroll-contain`, `m-auto`, `rounded-[24px] border border-line bg-paper`, backdrop `rgba(63,54,46,0.45)`, cierre por clic en el backdrop con `event.target === event.currentTarget`, y foco inicial en el textarea dentro de `requestAnimationFrame`.
 11. Añadir `BotonNuevaPublicacion` y la prop `nuevaPublicacion?: boolean` a `AppSidebar`: en `/feed` renderiza `<button type="button" onClick={abrir}>` con las mismas clases; en el resto, el `<a href="#">` original. El botón conectado solo se activa desde `app/feed/page.tsx`. Manual: en `/feed` el botón abre el diálogo sin cambiar la URL; en `/ninos` sigue siendo un enlace.
@@ -203,7 +254,9 @@ Convenciones:
 - [x] El header muestra "Cancelar", el título "Nueva publicación" y "Publicar" en una fila con borde inferior.
 - [x] El bloque PARA muestra los chips "Mateo", "Sofía", "Benjamín" y "Toda la sala".
 - [x] Al abrir, "Mateo" está activo con fondo `rgb(63, 54, 46)` y texto blanco.
-- [x] Pulsar "Sofía" la deja activa, desactiva "Mateo" y actualiza `aria-pressed` en ambos.
+- [ ] Pulsar "Sofía" la deja activa sin desactivar "Mateo", y `aria-pressed` es `true` en ambos.
+- [ ] Volver a pulsar un nombre activo lo desactiva sin afectar a los demás; se pueden desactivar todos.
+- [ ] Pulsar "Toda la sala" deja solo ese chip activo y limpia los nombres; pulsar un nombre desactiva "Toda la sala".
 - [x] El bloque TIPO muestra las siete pastillas Comida, Siesta, Actividad, Logro, Ánimo, Foto y Anuncio.
 - [x] Al abrir, "Comida" está activa con fondo `rgb(154, 123, 30)` y texto blanco; las demás usan su tono suave.
 - [x] Pulsar "Siesta" la deja activa con fondo `rgb(123, 95, 192)` y "Comida" sigue activa: TIPO es multiselección.
@@ -212,9 +265,12 @@ Convenciones:
 - [x] El bloque FOTOS muestra dos cuadros de 96 × 96 px y ninguno recibe el foco al recorrer con Tab.
 - [x] Publicar con la descripción vacía deja el diálogo abierto, muestra "Escribí una descripción para publicar." con `role="alert"`, marca `aria-invalid="true"` y enfoca el textarea.
 - [x] Escribir texto después del error lo borra sin necesidad de volver a publicar.
-- [x] Publicar con descripción válida cierra el diálogo y muestra "Publicación lista para Mateo." durante unos 4 segundos, sin cambiar la URL.
-- [x] Con "Toda la sala" seleccionado y descripción válida, el aviso dice "Publicación lista para toda la sala.".
-- [x] Al reabrir el diálogo, la descripción está vacía, "Comida" es el único tipo activo y "Mateo" vuelve a estar activo, sin errores ni aviso visible.
+- [ ] Publicar con descripción válida y solo "Mateo" activo cierra el diálogo y muestra "Publicación lista para Mateo." durante unos 4 segundos, sin cambiar la URL.
+- [ ] Con "Toda la sala" seleccionado y descripción válida, el aviso dice "Publicación lista para toda la sala.".
+- [ ] Con "Mateo" y "Sofía" activos, el aviso dice "Publicación lista para Mateo y Sofía.".
+- [ ] Con los tres nombres activos, el aviso dice "Publicación lista para Mateo, Sofía y Benjamín.".
+- [ ] Con PARA vacío y descripción válida, el aviso dice "Publicación lista.".
+- [ ] Al reabrir el diálogo, la descripción está vacía, "Comida" es el único tipo activo y "Mateo" vuelve a estar activo, sin errores ni aviso visible.
 - [x] "Cancelar", Escape y el clic en el backdrop cierran el diálogo sin mostrar el aviso.
 - [x] Tras publicar, "PUBLICADO HOY" sigue mostrando las mismas tres tarjetas y el contador de niños del encabezado no cambia.
 - [x] En 1440 px el diálogo queda centrado con `max-width: 580px`.
@@ -235,7 +291,7 @@ Convenciones:
 - **Sí:** prop `nuevaPublicacion` decidida por el servidor en vez de `usePathname()`. Evita un desajuste de hidratación y deja `/ninos` explícitamente fuera.
 - **Sí:** `CrearPublicacion` y `BotonNuevaPublicacion` consumen solo `{ abrir }` del contexto. El formulario queda encapsulado en el provider y ningún disparador puede desincronizarlo.
 - **Sí:** `destinatarios` por props con `ninos.slice(0, 3)`. Reproduce exactamente los tres chips de la maqueta sin hardcodear nombres y sin arrastrar los ocho niños al bundle del cliente.
-- **Sí:** selección única en PARA. Una publicación se asigna a un niño o a toda la sala, igual que los chips de las tarjetas del feed.
+- **Sí (ampliación 2026-11-12):** selección múltiple en PARA con "Toda la sala" excluyente. Una publicación puede ir a varios niños; "Toda la sala" describe al grupo completo y no tiene sentido junto a nombres sueltos. Se permite la selección vacía para no bloquear "Publicar", que solo exige descripción.
 - **Sí (ampliación 2):** selección múltiple en TIPO. Una publicación puede combinar tipos ("Comida" + "Foto") y no hay motivo para forzar uno solo. `aria-pressed` por pastilla sigue describiendo el estado y el grupo se anuncia como tal.
 - **Sí:** "Mateo" y "Comida" preseleccionados. Son los dos estados que la maqueta muestra activos.
 - **Sí:** inactivo en tono suave y activo en tono sólido con texto blanco. La maqueta enseña la paleta pero no un estado inactivo; así la vista inicial es idéntica a la referencia salvo Actividad, que en la maqueta aparece sólida y aquí queda suave hasta que se seleccione.
@@ -261,6 +317,7 @@ Convenciones:
 | El aviso fijo al pie tapa la última tarjeta del feed. | Mismo `role="status"` con `pointer-events-none` de 4 segundos que ya usa `agregar-nino.tsx`. |
 | La distinción activo/inactivo de TIPO no está en la maqueta y puede parecer arbitraria. | Está documentada en Decisiones y en la tabla de colores: suave = inactivo, sólido = activo. |
 | `ninos` cambia de orden y "Mateo" deja de estar primero. | `destinatarios[0]` alimenta el estado inicial; si la lista quedara vacía, el fallback es `TODA_LA_SALA`. |
+| Seleccionar nombres y "Toda la sala" a la vez deja un estado contradictorio. | "Toda la sala" ocupa el mismo array y `alternarDestinatario` filtra los nombres al activarlo; se prueba con Playwright. |
 | (Ampliación) El provider envuelve sidebar y `main`, así que el diálogo ya no vive dentro de `<main>`. | Se mueve con el layout completo dentro de `FeedContent`: `requireRole` sigue bajo el `<Suspense>` y `<dialog>` se dibuja en el top layer; se comprueba que "PUBLICADO HOY" sigue con 3 tarjetas. |
 | (Ampliación) `AppSidebar` es servidor y se comparte con `/ninos`: un `onClick` directo provocaría un desajuste de hidratación. | La prop `nuevaPublicacion` la decide el servidor; sin ella, el componente exporta el mismo `<a href="#">` de antes. Se verifica la consola en `/feed`, `/ninos` y `/ninos/[id]`. |
 | (Ampliación 2) Con multiselección se puede publicar sin ningún tipo elegido. | Aceptado a propósito: el único campo obligatorio es la descripción. Si más adelante hace falta un tipo, se añade la validación al grupo TIPO con el mismo patrón de `role="alert"`. |

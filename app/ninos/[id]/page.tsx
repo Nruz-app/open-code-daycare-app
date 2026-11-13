@@ -54,7 +54,7 @@ export default async function PerfilNinoPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">
-      <AppSidebar active="ninos" />
+      <AppSidebar active="ninos" nuevaPublicacion />
       <main className="min-w-0 flex-1 md:h-screen md:overflow-y-auto">
         <div className="mx-auto w-full max-w-[820px] px-5 pb-16 pt-6 md:px-10 md:pb-20 md:pt-[34px]">
           <Link

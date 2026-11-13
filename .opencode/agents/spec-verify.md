@@ -169,6 +169,32 @@ Pasos:
 
 ---
 
+## Skills de apoyo (por criterio, condicional)
+
+En `.agents/skills/` hay skills de apoyo instaladas. Al cerrar la Fase 1, lista esa carpeta y lee
+solo el frontmatter (`name`, `description`) de cada `SKILL.md`. Este agente tiene `subagent`
+denegado, así que las skills se consumen **leyendo sus ficheros** con la herramienta `read`, no
+invocando la herramienta `skill`.
+
+Carga una skill de apoyo **solo si algún criterio lo justifica**, y dilo en el informe:
+
+| Skill | Cuándo cargarla | Aporte |
+| --- | --- | --- |
+| `vercel-react-best-practices` | La spec tocó código React/Next.js y un criterio habla de rendimiento, `use cache`, server components, hooks de cliente o data fetching | Contrastar el código tocado con las reglas de esos patrones: lee el índice y solo las reglas que aplican al criterio en mano |
+| `interface-design` / `frontend-design` | Criterios de jerarquía, tokens o dirección visual, además de la maqueta de referencia | Criterio de comparación adicional, siempre subordinado a `references/pantallas/` |
+| `context7-mcp` | Ya está integrado en la Fase 4: esa skill documenta el mismo flujo. No la cargues aparte | — |
+| `supabase` (MCP, Code Mode) | La spec crea o modifica esquema de base de datos | Evidencia documental: compara `tools.supabase.list_migrations()` con los archivos de `supabase/migrations/` (llamada dentro de `execute`, con `return`). Una migración aplicada no se edita |
+
+Reglas:
+
+- Las skills de apoyo **no amplían tu alcance de edición**: sigues pudiendo escribir solo en
+  `specs/*.md`.
+- Los hallazgos de skills de apoyo van a la subsección **Skills de apoyo** del informe (Fase 8),
+  no a la tabla de criterios ni a los checks: no marcan ni desmarcan nada.
+- No arrastres carpetas de reglas completas: lee el índice y solo lo que aplique al criterio.
+
+---
+
 ## Fase 2 — Extraer los criterios
 
 Localiza la sección por significado, no por título exacto:
@@ -435,6 +461,11 @@ Antes de editar, vuelve a leer el archivo para trabajar sobre el contenido actua
 
 - `libraryId` consultado, concepto y recomendación. Indica si el código la cumple.
 
+### Skills de apoyo
+
+- Si cargaste alguna (`vercel-react-best-practices`, skills de diseño, MCP de Supabase): cuál, para
+  qué criterio y qué hallazgo aportó. Si no cargaste ninguna, escribe "Ninguna".
+
 ### Capturas
 
 - Rutas o referencias de las capturas tomadas y qué demuestra cada una.
@@ -457,6 +488,7 @@ Responde en el chat con:
 6. Rutas de las capturas.
 7. Archivos modificados: solo el spec.
 8. Siguiente paso: revisar fallos, corregir en código y volver a ejecutar `/spec-verify`.
+9. Skills de apoyo cargadas (o "ninguna") y, si las cargaste, qué hallazgo aportó cada una.
 
 No hagas commits. No propongas implementar la spec; tu trabajo termina con la verificación y el
 informe.

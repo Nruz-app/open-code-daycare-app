@@ -158,9 +158,9 @@ export function CrearPublicacionProvider({
   const dialogoRef = useRef<HTMLDialogElement>(null);
   const textoRef = useRef<HTMLTextAreaElement>(null);
 
-  const [destinatario, setDestinatario] = useState(
+  const [seleccionados, setSeleccionados] = useState<string[]>([
     destinatarios[0]?.id ?? TODA_LA_SALA,
-  );
+  ]);
   const [tipos, setTipos] = useState<TipoPublicacion[]>(["Comida"]);
   const [descripcion, setDescripcion] = useState("");
   const [errores, setErrores] = useState<Errores>({});
@@ -196,7 +196,7 @@ export function CrearPublicacionProvider({
 
   /** El `close` del diálogo limpia el formulario en todos los caminos. */
   function limpiar() {
-    setDestinatario(destinatarios[0]?.id ?? TODA_LA_SALA);
+    setSeleccionados([destinatarios[0]?.id ?? TODA_LA_SALA]);
     setTipos(["Comida"]);
     setDescripcion("");
     setErrores({});
@@ -214,6 +214,29 @@ export function CrearPublicacionProvider({
     );
   }
 
+  /**
+   * PARA también es multiselección: los nombres se alternan entre sí.
+   * "Toda la sala" es excluyente: al activarlo se limpian los nombres y al
+   * elegir un nombre se desactiva. Se permite dejar la selección vacía.
+   */
+  function alternarDestinatario(id: string) {
+    if (id === TODA_LA_SALA) {
+      setSeleccionados((actuales) =>
+        actuales.includes(TODA_LA_SALA) ? [] : [TODA_LA_SALA],
+      );
+
+      return;
+    }
+
+    setSeleccionados((actuales) => {
+      const sinSala = actuales.filter((actual) => actual !== TODA_LA_SALA);
+
+      return sinSala.includes(id)
+        ? sinSala.filter((actual) => actual !== id)
+        : [...sinSala, id];
+    });
+  }
+
   function publicar() {
     const descripcionLimpia = descripcion.trim();
 
@@ -224,11 +247,19 @@ export function CrearPublicacionProvider({
       return;
     }
 
-    const nombreDestinatario =
-      destinatarios.find((nino) => nino.id === destinatario)?.nombre ??
-      "toda la sala";
+    const nombres = destinatarios
+      .filter((nino) => seleccionados.includes(nino.id))
+      .map((nino) => nino.nombre);
 
-    setAviso(`Publicación lista para ${nombreDestinatario}.`);
+    const destino = seleccionados.includes(TODA_LA_SALA)
+      ? "toda la sala"
+      : nombres.length === 0
+        ? null
+        : new Intl.ListFormat("es", { type: "conjunction" }).format(nombres);
+
+    setAviso(
+      destino ? `Publicación lista para ${destino}.` : "Publicación lista.",
+    );
     cerrar();
   }
 
@@ -277,14 +308,14 @@ export function CrearPublicacionProvider({
             className="mb-[22px] flex flex-wrap gap-[9px]"
           >
             {destinatarios.map((destinatarioNino) => {
-              const activo = destinatario === destinatarioNino.id;
+              const activo = seleccionados.includes(destinatarioNino.id);
 
               return (
                 <button
                   key={destinatarioNino.id}
                   type="button"
                   aria-pressed={activo}
-                  onClick={() => setDestinatario(destinatarioNino.id)}
+                  onClick={() => alternarDestinatario(destinatarioNino.id)}
                   className={`${CHIP_CLASS} py-1.5 pl-1.5 pr-3.5 ${
                     activo ? CHIP_ACTIVO_CLASS : CHIP_INACTIVO_CLASS
                   }`}
@@ -303,10 +334,10 @@ export function CrearPublicacionProvider({
 
             <button
               type="button"
-              aria-pressed={destinatario === TODA_LA_SALA}
-              onClick={() => setDestinatario(TODA_LA_SALA)}
+              aria-pressed={seleccionados.includes(TODA_LA_SALA)}
+              onClick={() => alternarDestinatario(TODA_LA_SALA)}
               className={`${CHIP_CLASS} px-4 py-1.5 ${
-                destinatario === TODA_LA_SALA
+                seleccionados.includes(TODA_LA_SALA)
                   ? CHIP_ACTIVO_CLASS
                   : CHIP_INACTIVO_CLASS
               }`}
@@ -492,8 +523,8 @@ export function CrearPublicacion() {
 
 type BotonNuevaPublicacionProps = {
   /**
-   * En `/feed` abre el diálogo del provider; en `/ninos` se queda como el
-   * enlace decorativo que ya existía.
+   * Habilita el botón para abrir el diálogo del provider. Las pantallas del
+   * staff lo activan; sin contexto cae al enlace decorativo como respaldo.
    */
   activo?: boolean;
 };

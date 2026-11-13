@@ -30,6 +30,29 @@ Follow these four phases in strict order. **Do not advance to the next phase if 
 
 ---
 
+## Supporting skills (per step)
+
+This repo keeps helper skills in `.agents/skills/`. At the start of Phase 3 — after the branch is settled and before implementing — scan the inventory: read only the frontmatter (`name`, `description`) of each `SKILL.md` you find. Then, **for each step of the plan**, load a supporting skill **only if that step's files or topic match the skill's trigger**, and say in one line why you loaded — or skipped — it.
+
+| Supporting skill | Load it when the step… | What it contributes |
+| --- | --- | --- |
+| `vercel-react-best-practices` | Writes or edits React/Next.js code | Performance rules for server components, data fetching, client hooks. Read the index, then only the rules for the patterns the step touches |
+| `interface-design` | Creates or reshapes product UI (dashboards, lists, forms, tools) | Craft and consistency guidance for the UI being built |
+| `frontend-design` | Introduces a new visual direction or restyles screens | Aesthetic direction, typography, distinctive choices |
+| `context7-mcp` | Uses library APIs (Next 16, Tailwind v4, Supabase client) | Current docs instead of memory |
+| **Supabase MCP** (`tools.supabase.*` in Code Mode) | Touches database schema | Follow the repo's migration convention: new file in `supabase/migrations/` named `YYYYMMDDHHMMSS_snake_case.sql` (UTC timestamp, one logical change, plain DDL/DML — no `if not exists`, no `drop`, no manual transactions), apply it with `apply_migration({ name, query })` where `name` is the slug without timestamp, and confirm with `list_migrations()`. Applied migrations are never edited; fixes go in a new file |
+| `changelog-generator` | After the last step only | Drafts the changelog entry from the branch's accumulated diff (see below) |
+
+Rules:
+
+- Supporting skills decide the **how**, never the **what**. If a skill suggests something the spec does not include, record it as an observation for the user — do not implement it on this branch.
+- Never dump a whole rules folder into context. Read each skill's index; pull only the pieces the current step needs.
+- These skills never loosen the phase rules: the state must still mean Approved, the rhythm still pauses per step, and still **no automatic commits**.
+
+**Changelog at the end:** when the last step is done, load `changelog-generator`'s flow (read its `SKILL.md`) and draft the changelog entry **from the accumulated `git diff` against the base branch**, not from commits — this repo does not commit automatically. Present the entry as a proposal; the user decides what to do with it.
+
+---
+
 ### Phase 1 — Identify the spec
 
 The received argument is: `$ARGUMENTS`
@@ -181,6 +204,7 @@ Once confirmed, follow these rules during the entire implementation:
 
 **Work rhythm:**
 
+- Check **Supporting skills (per step)** above and load what applies to this step, then implement it.
 - Implement one step of the plan.
 - Show a summary of which files you touched and what you did.
 - Say: `Step N completed. Could you review the diff and let me know if I continue with Step N+1?`
@@ -204,6 +228,10 @@ Once confirmed, follow these rules during the entire implementation:
 
 ```
 ✅ All steps of the plan are implemented.
+
+Draft the changelog entry now: load `changelog-generator`'s flow (see **Supporting skills (per
+step)**) and propose an entry built from the accumulated diff against the base branch. The user
+decides what to do with it.
 
 Next step: verify the spec's acceptance criteria one by one.
 If they all pass, update the spec's state to "Implemented" (or the equivalent

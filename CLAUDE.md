@@ -229,6 +229,9 @@ Reglas:
   <https://github.com/klerith/fernando-skills>.
 - Los comandos `/spec`, `/spec-impl`, `/spec-imp` y `/spec-verify` son de OpenCode
   (`.opencode/commands/`). En Claude Code se invocan cargando el archivo correspondiente.
+- Las piezas del flujo de specs descubren y cargan condicionalmente skills de apoyo de
+  `.agents/skills/`; el detalle está en las secciones "Supporting skills" de sus `SKILL.md` y en el
+  agente `spec-verify`.
 
 ## MCP
 

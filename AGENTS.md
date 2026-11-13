@@ -10,330 +10,208 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # OpenDayCare — notas para agentes
 
-Portal de guardería en español con dos roles (`staff`, `family`). El repositorio es un scaffold de
-`create-next-app` con una capa de autenticación funcional; la UI del producto se construye a partir
-de `references/pantallas/*.dc.html`.
+Maqueta funcional de un portal de guardería en español, con roles `staff` | `family` y login de
+demostración. **La app no persiste nada**: no hay SDK de Supabase ni ORM; los datos viven en módulos
+(`app/lib/mock-ninos.ts`, `const posts` del feed). Manual de producto en [`README.md`](./README.md).
+`CLAUDE.md` remite a este archivo como fuente operativa, pero su tabla de specs solo cubre las
+01–03: no lo uses para saber qué specs existen.
 
-Este archivo es la **fuente de verdad operativa** para agentes. El manual de producto e instalación
-está en [`README.md`](./README.md). El punto de entrada específico para Claude Code está en
-[`CLAUDE.md`](./CLAUDE.md).
-
-## Idioma y estilo
-
-- Responde en **español**.
-- Los textos visibles, mensajes de error y comentarios del código van en español.
-- No inventes resultados de comandos, de Playwright ni de Context7. Si no pudiste probar algo,
-  dilo y explica qué falta.
-- No hagas commits salvo que la persona lo pida explícitamente.
-- No borres ni sobrescribas trabajo sin revisar antes el estado de Git.
-
-## Comandos
+## Comandos y verificación
 
 | Comando | Qué hace |
 | --- | --- |
-| `npm run dev` | Servidor de desarrollo en el puerto 3000 con Turbopack. |
+| `npm run dev` | Dev server en el puerto 3000 con Turbopack. |
 | `npm run build` | Build de producción. |
-| `npm run start` | Sirve el build de producción. |
+| `npm run start` | Sirve el build. |
 | `npm run lint` | ESLint flat config desde la raíz. |
 | `npx tsc --noEmit` | Typecheck. No hay script `typecheck`. |
 
-- No hay runner de tests. **No agregues ni ejecutes `npm test`**.
-- Verifica con lint, `tsc`, `build` y el Playwright MCP configurado en `opencode.json`.
-- Node.js mínimo: 20.9. El entorno de referencia usa Node 22.
+- Orden antes de cerrar un cambio: `npm run lint` → `npx tsc --noEmit` → `npm run build`.
+- No hay tests ni runner. **No agregues ni ejecutes `npm test`.**
+- Node.js 20.9+ (probado con 22.23.4).
 
-## Stack
-
-| Tecnología | Versión |
-| --- | --- |
-| Next.js | 16.4.5 |
-| React / React DOM | 19.3.0 |
-| TypeScript | 5.9.3 (declarado `^5`) |
-| Tailwind CSS | 4.3.5 (declarado `^4`) |
-| `@tailwindcss/turbopack` | 4.3.5 |
-| ESLint | 9.39.5 (declarado `^9`) |
-| OpenCode | 2.2.5 en este entorno |
-
-## Mapa rápido del repositorio
-
-```text
-app/
-├── activar-cuenta/page.tsx      # maqueta de activación familiar
-├── components/app-sidebar.tsx   # sidebar compartida del staff
-├── feed/page.tsx                # home del staff, protegido
-├── lib/dal.ts                   # autorización real
-├── lib/routes.ts                # PUBLIC/STAFF/FAMILY/HOME_BY_ROLE
-├── lib/session.ts               # cookie HMAC-SHA256
-├── lib/mock-ninos.ts            # datos de ejemplo
-├── login/                       # página, formulario y server action
-├── ninos/                       # listado, perfil y modal de alta
-├── globals.css                  # Tailwind v4 + tokens
-└── layout.tsx                   # Fredoka/Nunito + metadata
-proxy.ts                         # middleware de Next 16
-specs/                           # specs NN-slug.md
-.agents/skills/                  # spec, spec-impl, context7-mcp
-.opencode/commands/              # /spec, /spec-impl, /spec-imp, /spec-verify
-.opencode/agents/spec-verify.md  # verificador
-.github/workflows/opencode.yml   # agente /oc y /opencode
-references/                      # maquetas y capturas
-```
-
-## Autenticación y rutas (la parte no obvia)
-
-- Esta versión de Next usa `proxy.ts` en la raíz; `middleware.ts` está deprecado. `proxy.ts` corre
-  en runtime Node.js.
-- `proxy.ts` solo hace una comprobación **optimista** de la cookie firmada. La frontera real de
-  autorización es `app/lib/dal.ts`: llama a `getSession`, `verifySession` o `requireRole(role)`
-  antes de tocar datos.
-- Las sesiones son cookies stateless HMAC-SHA256 (`app/lib/session.ts`); los roles son
-  `staff | family`.
-- `SESSION_SECRET` es obligatorio (32+ caracteres) y vive en `.env.local` (parte de
-  `.env.example`). Si falta, la verificación falla cerrada.
-- El enrutamiento es **deny-by-default**. Las rutas protegidas nuevas no necesitan cambios en
-  `proxy.ts`, pero las rutas públicas o restringidas por rol deben registrarse en `PUBLIC_ROUTES`,
-  `STAFF_ONLY`, `FAMILY_ONLY` o `HOME_BY_ROLE` en `app/lib/routes.ts`.
-- `/login` es un acceso de demostración que firma `staff-demo` sin contraseña. El selector Familia
-  está deshabilitado. Cuando exista autenticación real, sustituye `loginAsStaff`.
-- `?next=` se valida contra `STAFF_ONLY` para evitar open redirects.
-
-## Convenciones y trampas
-
-- `@/*` apunta a la raíz (`tsconfig.json`), así que los imports son `@/app/lib/...`, **no**
-  `@/lib/...`.
-- Tailwind es v4 y CSS-first: `@import "tailwindcss"` en `app/globals.css`, compilado por la regla
-  `@tailwindcss/turbopack` de `next.config.ts`. No hay `tailwind.config.*` ni PostCSS; no agregues
-  configuración de v3.
-- `next.config.ts` activa `cacheComponents`, `partialPrefetching` y
-  `experimental.agentFeedback`. Revisa la documentación incluida en `node_modules/next/dist/docs/`
-  antes de cambiar data fetching o caché.
-- `app/layout.tsx` y `app/globals.css` implementan el sistema de diseño (Fredoka/Nunito, tokens
-  cream/coral). El diseño objetivo está en `references/pantallas/` y `references/screenshots/`.
-- `app/page.tsx` solo redirige. `proxy.ts` manda `/` al home del rol (`/feed` para staff) o a
-  `/login`.
-- `next.config.ts` fija `allowedDevOrigins` para la IP de la LAN; actualízala si cambia.
-- En Next 16, cuando una página usa `connection()` y `notFound()` con `cacheComponents`, revisa
-  `export const instant = false` (ver `app/ninos/[id]/page.tsx`).
-- No leas ni imprimas `.env.local`; si necesitas comprobar que existe, usa `glob` con `.env*`.
-
-## Diseño
-
-- Tipografías: **Fredoka** para títulos (`font-display`) y **Nunito** para texto (`font-sans`),
-  cargadas con `next/font/google`.
-- Paleta cálida: `cream`, `surface`, `line`, `ink`, `coral`, `sky`, `mint`, `lilac`.
-- Utilidades: `bg-cream`, `text-ink`, `rounded-card`, `shadow-card`, `font-display`.
-- Compara con las maquetas `.dc.html` y con las capturas. No cuentes el overlay de Next Dev Tools
-  como diferencia de diseño.
-- Los textos de producto van en español.
-
-## Datos
-
-- No hay base de datos ni persistencia.
-- `app/feed/page.tsx` define las publicaciones en el módulo.
-- `app/lib/mock-ninos.ts` contiene ocho niños y `getNino(id)`.
-- `app/ninos/agregar-nino.tsx` valida en cliente y confirma en pantalla, pero no guarda.
-- `app/lib/fecha-nacimiento.ts` contiene la máscara y validación de `dd/mm/aaaa`.
-- Toda lectura de datos real debe pasar por la DAL.
-
-## Flujo de specs
-
-- `/spec`, `/spec-impl` y `/spec-imp` están definidos en `.opencode/commands/` y respaldados por
-  las skills de `.agents/skills/spec*`. Responden en español.
-- `/spec-verify` está definido en `.opencode/commands/spec-verify.md` y respaldado por el agente
-  `.opencode/agents/spec-verify.md`. Verifica criterios con evidencia, usa Context7 para Next.js y
-  Playwright para pantallas, y nunca edita código.
-- Las specs viven en `specs/NN-slug.md` (crea `specs/` si falta y empieza en `01-`).
-- `/spec-impl` solo corre sobre una spec cuyo estado signifique **Aprobado**, crea la rama
-  `spec-NN-slug` y **nunca hace commits**.
-- `specs/.spec-config.yml` controla `AutoCreateBranch` (`true` por defecto).
-- `/spec-verify` solo puede editar `specs/*.md`; no toca código, configuración ni `.env.local`.
-- Specs actuales: `01-diseno-feed-home` (Implementado), `02-diseno-ninos-perfil` (Implementado),
-  `03-login-activar-cuenta` (Implementado).
-
-## Agentes, comandos y skills
-
-| Archivo | Función |
-| --- | --- |
-| `opencode.json` | Comandos `spec`/`spec-impl` y servidor MCP `playwright`. |
-| `.opencode/commands/spec.md` | Diseñar una spec. |
-| `.opencode/commands/spec-impl.md` | Implementar una spec aprobada. |
-| `.opencode/commands/spec-imp.md` | Alias de `/spec-impl`. |
-| `.opencode/commands/spec-verify.md` | Verificar una spec. |
-| `.opencode/agents/spec-verify.md` | Agente verificador restringido. |
-| `.agents/skills/spec/SKILL.md` | Método de specs. |
-| `.agents/skills/spec-impl/SKILL.md` | Método de implementación. |
-| `.agents/skills/context7-mcp/SKILL.md` | Uso de Context7. |
-
-El agente `spec-verify` usa el modelo `opencode/nemotron-3.5-super-vl-free`, modo `all`, permite
-editar solo `specs/*.md`, permite un shell acotado y prohíbe subagentes y
-`browser_run_code_unsafe`.
-
-Instalación de OpenCode:
-
-```bash
-npm install -g @opencode/cli
-opencode --version
-```
-
-Documentación: <https://opencode.ai/docs/> · Configuración:
-<https://opencode.ai/docs/config/> · Comandos: <https://opencode.ai/docs/commands/> · Agentes:
-<https://opencode.ai/docs/agents/> · Skills: <https://opencode.ai/docs/skills/>.
-
-## MCP
-
-### Servidores del proyecto
-
-| Servidor | Tipo | Comando / URL | Dónde |
-| --- | --- | --- | --- |
-| `playwright` | Local (stdio) | `npx @playwright/mcp@latest` | `opencode.json` |
-| `context7` | Remoto (HTTP) | `https://mcp.context7.com/mcp` | Configuración global del entorno; no está en `opencode.json` |
-
-Comandos útiles:
-
-```bash
-opencode mcp list
-opencode mcp add playwright -- npx @playwright/mcp@latest
-opencode mcp add context7 --url https://mcp.context7.com/mcp
-opencode mcp auth context7
-opencode mcp logout context7
-```
-
-En la TUI: `/mcps`.
-
-### Code Mode
-
-En esta instalación, las herramientas MCP se llaman **dentro de `execute`**, no como herramientas
-de primer nivel. Patrón:
-
-```js
-const library = await tools.context7["resolve-library-id"]({
-  libraryName: "Next.js",
-  query: "proxy.ts vs middleware.ts en Next.js 16",
-});
-return library;
-```
-
-```js
-const result = await tools.playwright.browser_navigate({
-  url: "http://localhost:3000/login",
-});
-return result;
-```
-
-Reglas:
-
-- Cada llamada a `execute` debe terminar con `return`.
-- Si `playwright_*` o `context7_*` aparecen como herramientas directas, puedes usarlas; si fallan
-  con "No tool named…", cambia a `execute`.
-- No uses `browser_run_code_unsafe`.
-- `search` solo existe dentro de `execute` y no hace falta para estas herramientas.
-
-### Context7
-
-- Web: <https://context7.com>
-- Repositorio: <https://github.com/upstash/context7>
-- Instalación por cliente: <https://context7.com/docs/resources/all-clients>
-- Dashboard/API key: <https://context7.com/dashboard>
-- Skill del proyecto: `.agents/skills/context7-mcp/SKILL.md`
-
-Herramientas:
-
-| Herramienta | Parámetros | Uso |
-| --- | --- | --- |
-| `resolve-library-id` | `libraryName`, `query` | Obtener el ID de la librería. |
-| `query-docs` | `libraryId`, `query`, `language?` | Consultar un concepto concreto. |
-
-Una consulta por concepto. Cita el `libraryId` y contrasta con el código real.
-
-### Playwright
-
-- Repositorio: <https://github.com/microsoft/playwright-mcp>
-- npm: <https://www.npmjs.com/package/@playwright/mcp>
-- Playwright: <https://playwright.dev/docs/intro>
-
-Herramientas habituales: `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`,
-`browser_fill_form`, `browser_evaluate`, `browser_resize`, `browser_take_screenshot`,
-`browser_console_messages`, `browser_network_requests`, `browser_tabs`, `browser_press_key`,
-`browser_wait_for`.
-
-Reglas:
-
-- Comprueba la URL de la pestaña activa antes de capturar.
-- Capturas sin `filename` van a `.playwright-mcp/` (ignorado por Git).
-- Usa contextos aislados para probar el login.
-- No modifiques datos ni envíes formularios que no sean el login demo.
-- No borres `.playwright-mcp/` con shell.
-- Playwright MCP **no es una frontera de seguridad**.
-
-Documentación de seguridad MCP:
-<https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices>.
-
-## Verificación
-
-Antes de cerrar un cambio:
-
-```bash
-npm run lint
-npx tsc --noEmit
-npm run build
-```
-
-Estado conocido (2026-11-10):
+Estado re-verificado el 2026-11-13:
 
 | Comprobación | Resultado | Detalle |
 | --- | --- | --- |
 | `npx tsc --noEmit` | ✅ | Sin errores. |
-| `npm run lint` | ❌ preexistente | 2 errores y 8 avisos en `references/pantallas/support.js` (bundle de la maqueta). |
-| `npm run build` | ❌ preexistente | `/login` lee `searchParams` fuera de `<Suspense>` con `cacheComponents`. |
+| `npm run lint` | ❌ preexistente | 8 errores y 23 avisos: `references/pantallas/support.js` (bundle de las maquetas) y `.agents/skills/brainstorming/scripts/` (skill instalada, no es código de la app). |
+| `npm run build` | ❌ preexistente | Muere prerenderizando `/login` (`searchParams` fuera de `<Suspense>` con `cacheComponents`). El build se corta ahí: no hay evidencia de las rutas siguientes. |
 
-No atribuyas estos fallos a tu cambio ni los maquilles para que pasen. Si tu tarea los toca,
-propón una spec aparte.
+No atribuyas estos fallos a tu cambio, no los maquilles y no edites los bundles para "arreglar" lint.
+Arreglos reales: ignorar `references/**` y los scripts de `.agents/skills/**` en `globalIgnores` de
+`eslint.config.mjs` (hoy solo ignora `.next`, `out`, `build` y `next-env.d.ts`) y
+`export const instant = false` o `<Suspense>` en `/login`. Van en una spec aparte.
+Las tablas de verificación de `README.md` y `CLAUDE.md` (2026-11-10) están desactualizadas
+(cuentan 2 errores de lint); gana la de este archivo.
 
-Para pantallas:
+## Setup
 
-1. `npm run dev`.
-2. Navega con Playwright y verifica la URL.
-3. Prueba `1440×900` y `375×812` (o lo que pida la spec).
-4. Captura y compara con `references/screenshots/`.
-5. Revisa consola y red si aplica.
+- `SESSION_SECRET` es obligatorio (32+ caracteres) en `.env.local` (plantilla en `.env.example`). Sin
+  él `decodeSession` devuelve `null` y `encodeSession` lanza: no hay sesión y el login no puede
+  completarse. No leas ni imprimas `.env.local`.
+- `next dev` escribe y restaura los bloques `nextjs-agent-rules` / `nextjs-agent-feedback` de este
+  archivo: no los borres.
 
-Para specs:
+## Autenticación y rutas (lo no obvio)
+
+- Esta versión de Next usa `proxy.ts` en la raíz; `middleware.ts` está deprecado. `proxy.ts` corre en
+  runtime Node.js.
+- `proxy.ts` solo hace una comprobación **optimista** de la cookie firmada. La autorización real es
+  `app/lib/dal.ts`: `getSession`, `verifySession` o `requireRole(role)` antes de tocar datos. Hoy las
+  tres páginas con datos (`/feed`, `/ninos`, `/ninos/[id]`) usan `requireRole("staff")`.
+- La sesión es una cookie stateless HMAC-SHA256 (`app/lib/session.ts`); roles `staff | family`.
+- Enrutamiento **deny-by-default**: las rutas nuevas protegidas no requieren cambios en `proxy.ts`,
+  pero las públicas o por rol deben registrarse en `PUBLIC_ROUTES`, `STAFF_ONLY`, `FAMILY_ONLY` o
+  `HOME_BY_ROLE` de `app/lib/routes.ts`. El matching (`matches()`) es exacto o por prefijo de
+  segmento: `/ninos/123` sí coincide, `/ninos-x` no.
+- `app/lib/routes.ts` registra rutas que **no son páginas**: `/familia-feed` (además es
+  `HOME_BY_ROLE.family`), `/familia-cuenta`, `/avisos`, `/resumen-dia`, `/crear-publicacion` y
+  `/agregar-nino`. Las dos últimas se resuelven con diálogos (`app/feed/crear-publicacion.tsx` y
+  `app/ninos/agregar-nino.tsx`); `/vincular-padre` también es un modal, aunque esté en
+  `PUBLIC_ROUTES`. No asumas que una entrada de esas listas tiene pantalla.
+- `proxy.ts` manda al home del rol a cualquier sesión que entre en una ruta pública, `/activar-cuenta`
+  incluida: esas pantallas solo se ven sin sesión.
+- `/login` es acceso demo: firma `staff-demo` sin contraseña y el selector Familia está deshabilitado.
+  `?next=` se valida contra `STAFF_ONLY` en `app/login/actions.ts` (anti open redirect).
+- También hay `logout` en `app/login/actions.ts`: borra la cookie y redirige a `/login`. Lo usa
+  `app/components/logout-button.tsx` (Server Action como formulario), en la sidebar de escritorio
+  y la cabecera móvil.
+
+## Convenciones y trampas
+
+- `@/*` apunta a la raíz (`tsconfig.json`): los imports son `@/app/lib/...`, **no** `@/lib/...`.
+- Tailwind v4 es CSS-first: tokens con `@theme inline` en `app/globals.css` y loader
+  `@tailwindcss/turbopack` en `next.config.ts`. No hay `tailwind.config.*` ni PostCSS; no agregues
+  configuración de v3.
+- `next.config.ts` activa `cacheComponents`, `partialPrefetching`, `experimental.agentFeedback` y
+  fija `allowedDevOrigins` a una IP de LAN (`172.22.240.1`); actualízala si cambia.
+- Con `cacheComponents`, cualquier lectura de `connection()`, `cookies()` o `searchParams` en una
+  página debe ir dentro de `<Suspense>`. `/feed` y `/ninos` usan el patrón `XContent` + `<Suspense>`;
+  `/login` no lo hace y es el fallo de build conocido.
+- `app/ninos/[id]/page.tsx` necesita `export const instant = false` para combinar `connection()` y
+  `notFound()`. Es intencional.
+- Revisa `node_modules/next/dist/docs/` antes de cambiar data fetching o caché.
+- `app/page.tsx` solo redirige; el proxy decide el destino según rol.
+- El botón "Nueva publicación" de la sidebar solo abre el diálogo si la pantalla renderiza
+  `<AppSidebar nuevaPublicacion />` dentro de `NuevaPublicacionProvider`: `/feed` envuelve su
+  contenido y `app/ninos/layout.tsx` envuelve las pantallas de niños. Una pantalla nueva del staff
+  necesita ese provider o el botón queda muerto. El provider es componente servidor y solo pasa al
+  cliente un resumen de tres niños.
+
+## Mapa rápido
 
 ```text
-/spec-verify NN
+app/
+├── page.tsx                     # redirige; el proxy decide el destino
+├── feed/page.tsx                # home staff: posts en módulo, Suspense + requireRole
+├── feed/crear-publicacion.tsx   # cliente: <dialog>, triggers y botón de la sidebar
+├── components/app-sidebar.tsx   # servidor; prop nuevaPublicacion
+├── components/logout-button.tsx # Server Action logout; sidebar y cabecera móvil
+├── components/nueva-publicacion-provider.tsx  # servidor; destinatarios + provider
+├── ninos/layout.tsx             # envuelve niños con el provider de publicación
+├── ninos/page.tsx               # listado + modal de alta
+├── ninos/[id]/page.tsx          # perfil; instant = false
+├── ninos/agregar-nino.tsx       # modal de alta (no persiste)
+├── ninos/vincular-padre.tsx     # modal de invitación (no persiste)
+├── login/                       # page, formulario y server action
+├── activar-cuenta/page.tsx      # maqueta pública
+└── lib/{dal,session,routes,mock-ninos,fecha-nacimiento}.ts
+proxy.ts                         # sustituye a middleware.ts
+supabase/migrations/             # migraciones aplicadas por MCP
+specs/NN-slug.md                 # specs 01–06, todas Implementado
+.opencode/commands|agents/       # /spec, /spec-impl, /spec-imp, /spec-verify
+.agents/skills/                  # spec, spec-impl, context7-mcp + skills instaladas (skills-lock.json)
+references/pantallas/*.dc.html   # maquetas objetivo (+ references/screenshots/)
 ```
 
-No marques criterios sin evidencia de esta ejecución. Distingue fallo (la prueba salió mal) de
-bloqueo (no se pudo probar).
+## Diseño
+
+- **Fredoka** para títulos (`font-display`) y **Nunito** para texto (`font-sans`), vía
+  `next/font/google`.
+- Tokens en `app/globals.css`: `cream`, `paper`, `surface`, `line*`, `ink*`, `coral*`, `sky*`, `mint*`,
+  `lilac*`. Utilidades: `bg-cream`, `text-ink`, `rounded-card`, `shadow-card`.
+- Compara con `references/pantallas/*.dc.html` y `references/screenshots/`. El overlay de Next Dev
+  Tools no cuenta como diferencia.
+- Textos visibles, mensajes de error y comentarios del código en español.
+
+## Datos
+
+- Feed: `const posts` dentro de `app/feed/page.tsx`.
+- Niños: ocho en `app/lib/mock-ninos.ts` (`ninos`, `getNino(id)`), con padres y notas.
+- `agregar-nino`, `crear-publicacion` y `vincular-padre` validan en cliente y confirman en pantalla,
+  pero no guardan nada.
+- Fechas: `app/lib/fecha-nacimiento.ts` (máscara y validación `dd/mm/aaaa`).
+- En Supabase existen la tabla `daycares` y tres guarderías demo, pero la app no las lee.
+- Cualquier lectura de datos real futura debe pasar por la DAL.
+
+## Migraciones (Supabase)
+
+- Proyecto: `btknjzobaqtekofvfsof`. Diccionario de tablas en
+  `references/DB-Schema/opendaycare-database-schema.md`: es el objetivo, no el estado. Solo existe
+  `daycares`; las otras doce tablas son referencia.
+- Los cambios de esquema viven en `supabase/migrations/` como `YYYYMMDDHHMMSS_snake_case.sql`, con el
+  timestamp UTC de creación y un solo cambio lógico por archivo.
+- Contenido: DDL o DML plano, sin `if not exists`, sin `drop` y sin `begin`/`commit` manual.
+- Se aplican con `tools.supabase.apply_migration({ name, query })`; `name` es el slug sin timestamp
+  (`create_daycares`) y `query` es el SQL completo del archivo. `apply_migration` asigna su propio
+  `version`: no coincide con el prefijo del archivo, empareja por `name`.
+- `tools.supabase.list_migrations()` es la fuente para saber qué se aplicó (hoy `create_daycares` y
+  `seed_daycares`). Una migración aplicada no se edita: cualquier corrección va en un archivo nuevo.
+- El archivo del repositorio y el historial de Supabase deben coincidir en contenido y cantidad.
+- `daycares` tiene RLS habilitado sin políticas; el aviso `rls_enabled_no_policy` es informativo y
+  esperado hasta la spec de `users` y autenticación.
+
+## Flujo de specs
+
+- Specs en `specs/NN-slug.md`. `/spec`, `/spec-impl` y `/spec-imp` están en `.opencode/commands/` y se
+  apoyan en `.agents/skills/spec*`.
+- `/spec-impl` solo corre con estado **Aprobado**, crea la rama `spec-NN-slug`
+  (`specs/.spec-config.yml` → `AutoCreateBranch: true`) y **no hace commits**.
+- La skill `spec-impl` sugiere marcar la spec como Implementado y commitear al final. En este repo
+  **no**: commits y cambios de estado solo si la persona lo pide explícitamente.
+- `/spec-verify` usa el agente `.opencode/agents/spec-verify.md` (modelo
+  `opencode/nemotron-3.5-super-vl-free`), solo edita `specs/*.md`, marca `[x]` únicamente con
+  evidencia de esa ejecución y distingue fallo (la prueba salió mal) de bloqueo (no se pudo probar).
+- Las tres piezas del flujo descubren y cargan **condicionalmente** skills de apoyo de
+  `.agents/skills/` (escaneo del inventario en cada ejecución) y el MCP de Supabase cuando el tema
+  aplica. Las de apoyo deciden el "cómo", nunca el "qué" de la spec: los detalles están en sus
+  secciones "Supporting skills" / "Skills de apoyo".
+
+## MCP
+
+- `playwright` está en `opencode.json` (local, `npx @playwright/mcp@latest`). `context7` es
+  configuración global del entorno, no está en `opencode.json`.
+- `supabase` está en `opencode.json` como servidor remoto, apuntando al proyecto
+  `btknjzobaqtekofvfsof`. Es para consultar docs/esquema, migrar y depurar; la app todavía **no** tiene
+  SDK ni persistencia. Si `opencode mcp list` lo marca como `needs authentication`, inicia sesión
+  desde `/mcps` (no ejecutes `opencode mcp auth` por shell). En Code Mode sus herramientas son
+  `tools.supabase.<tool>`.
+- En Code Mode las herramientas MCP se llaman **dentro de `execute`** y cada llamada termina con
+  `return`:
+
+```js
+const out = await tools.supabase.list_migrations();
+return out;
+```
+
+- No uses `browser_run_code_unsafe`. Verifica la URL de la pestaña activa antes de capturar; las
+  capturas sin `filename` van a `.playwright-mcp/` (ignorado por Git), no la borres con shell.
+- Usa contextos aislados para el login y no envíes otros formularios. Playwright MCP no es una
+  frontera de seguridad.
 
 ## Agente de OpenCode en GitHub
 
-- Workflow: `.github/workflows/opencode.yml`.
-- Responde a comentarios que empiezan por `/oc` o `/opencode`.
-- Requiere la app <https://github.com/apps/opencode-agent> y el secreto `OPENCODE_API_KEY` creado
-  en <https://opencode.ai/console>.
-- Modelo: `opencode/deepseek-v4.1-flash-free`.
-- Documentación: <https://opencode.ai/docs/github/>.
-
-## Enlaces de referencia
-
-- README completo: [`README.md`](./README.md)
-- Next.js: <https://nextjs.org/docs>
-- Next.js 16 `proxy.ts`: <https://nextjs.org/docs/app/api-reference/file-conventions/proxy>
-- Tailwind v4: <https://tailwindcss.com/docs>
-- OpenCode: <https://opencode.ai/docs/>
-- MCP: <https://modelcontextprotocol.io/>
-- Context7: <https://context7.com>
-- Playwright MCP: <https://github.com/microsoft/playwright-mcp>
-- Specs de referencia: <https://github.com/klerith/fernando-skills>
+`.github/workflows/opencode.yml` responde a comentarios que empiezan por `/oc` o `/opencode`. Requiere
+la app <https://github.com/apps/opencode-agent> y el secreto `OPENCODE_API_KEY`. Modelo:
+`opencode/deepseek-v4.1-flash-free`.
 
 ## Reglas duras
 
-- No inventes comandos, resultados ni APIs.
+- Responde en español y no inventes comandos, resultados, APIs ni pruebas.
 - No edites código para "hacer pasar" una verificación.
-- No cambies el estado de una spec; esa decisión es humana.
-- No hagas commits sin pedido explícito.
+- No hagas commits ni cambies el estado de una spec sin pedido explícito.
 - No toques `.env.local`, secretos ni archivos fuera del alcance.
-- Mantén el bloque `nextjs-agent-rules` y el bloque `nextjs-agent-feedback` de este archivo: los
-  escribe `next dev` y se restauran solos.
 
 <!-- BEGIN:nextjs-agent-feedback -->
 

@@ -45,3 +45,13 @@ export async function loginAsStaff(formData: FormData) {
 
   redirect(destinoSeguro(formData.get("next")));
 }
+
+/**
+ * Cierra la sesión: elimina la cookie firmada y vuelve al acceso.
+ */
+export async function logout() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
+
+  redirect("/login");
+}

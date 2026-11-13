@@ -26,6 +26,27 @@ A spec is not decorative documentation. It is the contract that drives later exe
 
 Read `template.md` (in the same directory as this skill) to see the full structure the spec will follow. Lean on it at every step.
 
+## Supporting skills
+
+This repo keeps helper skills in `.agents/skills/`. Before asking feature questions, **scan the inventory**: list `.agents/skills/*/SKILL.md` and read only each one's frontmatter (`name`, `description`). Do not read the full body of every skill — that floods your context and buys nothing at design time.
+
+Load a supporting skill **only when the feature justifies it** (conditional, not automatic), and say in one line why you loaded — or skipped — each candidate. Loading means reading that skill's `SKILL.md` (or invoking it with the `skill` tool if your host exposes one) and applying only the parts relevant to spec design.
+
+| Supporting skill | Load it when… | What it contributes here |
+| --- | --- | --- |
+| `brainstorming` | The feature is creative or product-shaped: new flows, interactions, ideas without a fixed shape | Structured idea expansion before the Phase 2 questions. Its own rule: use it before creative work |
+| `interface-design` | The spec defines or reshapes product UI (dashboards, lists, forms, tools) | Measurable acceptance criteria: tokens, states, hierarchy |
+| `frontend-design` | The spec introduces a new visual direction or restyling | Aesthetic and typography decisions to fold into the criteria |
+| `context7-mcp` | The plan depends on framework conventions (Next.js, Tailwind, Supabase) | Current library docs to validate assumptions before Phase 3 writes the plan |
+| anything else found | Only if its frontmatter clearly matches the feature | Judge from the description and say why you skipped it |
+
+Rules:
+
+- Supporting skills **inform the spec, they never decide scope**. Scope stays with the user.
+- UI skills feed **measurable acceptance criteria** (concrete tokens, breakpoints, states) — not decoration, not scope.
+- Never dump an entire rules folder into context. Read the index, then only the pieces you need.
+- If a supporting skill suggests something the user did not confirm, turn it into a Phase 2 question, not a decision.
+
 ## Command flow
 
 - Follow the four phases in order. **Never skip Phase 2** — the questions are the whole point. If the user wants to go faster, remind them that the cost of a bad spec gets paid later in code. (Phase 3 does have a fast path once Phase 2 is genuinely complete; see below.)
@@ -38,12 +59,15 @@ Before asking questions about the feature, make sure you have project context:
 1. Read the project-memory file, if one exists. Try in order and stop at the first hit: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `README.md`. This adapts the skill to whichever agent is running it (Claude Code, Codex, Gemini CLI, etc.).
 2. Look at the `specs/` listing in the session context above to see which specs already exist and how they are numbered.
 3. If previous specs exist, read at least the two most recent ones to pick up the project's conventions — including the **language** they are written in and the exact wording they use for states and section headings. A new spec must match the existing ones.
+4. Scan the supporting-skills inventory in `.agents/skills/` (see **Supporting skills** above) and decide which ones this feature justifies. Note your decision; you will apply it in Phases 2 and 3.
 
 If the `$ARGUMENTS` argument comes in empty, ask the user for an initial **single-sentence** description of what they want to build. If the description does not fit in one sentence, that is the first signal that the feature is too big — suggest splitting it before continuing.
 
 ### Phase 2 — Clarify through questions
 
 This is the most important phase of the command. Your job here is to **detect ambiguities and ask**, not to assume.
+
+If you loaded `brainstorming` or a UI skill in Phase 1, use its output now: it should sharpen these questions and turn design opinions into measurable options the user can pick from.
 
 Ask questions in blocks of 3 to 5 at a time (not one single question followed by another single question — that is exhausting). After each block, wait for an answer before continuing.
 
@@ -77,6 +101,8 @@ If you still cannot answer one of them, keep asking.
 ### Phase 3 — Write the spec
 
 Once Phase 2 is closed, decide how to write it:
+
+If `context7-mcp` was justified in Phase 1, validate the framework conventions the spec will assume (with the installed versions) **before** writing the implementation plan. Cite what you checked in the spec's decisions section when it settles a real choice.
 
 **If you already have all the information you need** — meaning you can answer the three Phase 2 questions (which files change, what the first and last executable steps are, how to verify it is finished) **without assuming anything** — then **do not go section by section**. Write the complete spec and jump straight to Phase 4 to save the file. Do not ask for section-by-section confirmation, and do not show a draft for approval first: the user already answered everything in Phase 2, and re-asking is friction. The user reviews the saved file and asks for changes if needed.
 

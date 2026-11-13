@@ -2,12 +2,9 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { AppSidebar } from "@/app/components/app-sidebar";
-import {
-  CrearPublicacion,
-  CrearPublicacionProvider,
-} from "@/app/feed/crear-publicacion";
+import { NuevaPublicacionProvider } from "@/app/components/nueva-publicacion-provider";
+import { CrearPublicacion } from "@/app/feed/crear-publicacion";
 import { requireRole } from "@/app/lib/dal";
-import { ninos } from "@/app/lib/mock-ninos";
 
 type FeedPost = {
   id: string;
@@ -189,15 +186,8 @@ async function FeedContent() {
   await connection();
   await requireRole("staff");
 
-  const destinatarios = ninos.slice(0, 3).map((nino) => ({
-    id: nino.id,
-    nombre: nino.nombre.split(" ")[0],
-    inicial: nino.inicial,
-    avatarTone: nino.avatarTone,
-  }));
-
   return (
-    <CrearPublicacionProvider destinatarios={destinatarios}>
+    <NuevaPublicacionProvider>
       <div className="flex min-h-screen flex-col bg-cream md:flex-row">
         <AppSidebar nuevaPublicacion />
         <main className="min-w-0 flex-1 md:h-screen md:overflow-y-auto">
@@ -231,7 +221,7 @@ async function FeedContent() {
           </div>
         </main>
       </div>
-    </CrearPublicacionProvider>
+    </NuevaPublicacionProvider>
   );
 }
 
