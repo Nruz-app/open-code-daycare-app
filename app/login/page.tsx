@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { LoginForm } from "@/app/login/login-form";
@@ -6,12 +7,18 @@ export const metadata: Metadata = {
   title: "Iniciar sesión · OpenDayCare",
 };
 
-export default async function LoginPage({
+async function LoginContent({
   searchParams,
-}: PageProps<"/login">) {
+}: Pick<PageProps<"/login">, "searchParams">) {
   const params = await searchParams;
   const next = typeof params.next === "string" ? params.next : undefined;
 
+  return <LoginForm next={next} />;
+}
+
+export default function LoginPage({
+  searchParams,
+}: PageProps<"/login">) {
   return (
     <main className="grid min-h-screen grid-cols-1 bg-paper md:grid-cols-[1.05fr_1fr]">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-[linear-gradient(155deg,#f6a98e_0%,#f2937a_45%,#ec7e62_100%)] px-[60px] py-14 text-white md:flex">
@@ -58,7 +65,9 @@ export default async function LoginPage({
       </div>
 
       <div className="flex items-center justify-center p-7 md:p-10">
-        <LoginForm next={next} />
+        <Suspense fallback={null}>
+          <LoginContent searchParams={searchParams} />
+        </Suspense>
       </div>
     </main>
   );

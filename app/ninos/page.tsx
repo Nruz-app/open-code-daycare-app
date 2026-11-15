@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { AppSidebar } from "@/app/components/app-sidebar";
-import { requireRole } from "@/app/lib/dal";
+import { getDaycares, requireRole } from "@/app/lib/dal";
 import { ninos, type AvatarTone, type ChipNino } from "@/app/lib/mock-ninos";
 import { AgregarNino } from "@/app/ninos/agregar-nino";
 
@@ -31,6 +31,7 @@ function metaPadres(cantidad: number): string {
 async function NinosContent() {
   await connection();
   await requireRole("staff");
+  const guarderias = await getDaycares();
 
   return (
     <div className="mx-auto w-full max-w-[880px] px-5 pb-16 pt-6 md:px-10 md:pb-20 md:pt-[34px]">
@@ -46,6 +47,27 @@ async function NinosContent() {
 
         <AgregarNino />
       </header>
+
+      {/* Tarjeta de guarderías: primer dato real de Supabase vía DAL. */}
+      <div className="mb-[22px] rounded-box border border-line bg-surface p-4 shadow-soft">
+        <div className="mb-2 font-display text-[16px] font-semibold text-ink">
+          Guarderías
+        </div>
+        {/* Si la lectura falla o no hay filas, se avisa sin romper la pantalla. */}
+        {guarderias.length === 0 ? (
+          <p className="text-[13px] text-ink-soft">
+            No se pudo cargar la lista de guarderías.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {guarderias.map((guarderia) => (
+              <li key={guarderia.id} className="text-[14px] text-ink-soft">
+                {guarderia.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="mb-[22px] flex items-center gap-[11px] rounded-chip border border-line bg-surface px-4 py-3">
         <svg
@@ -129,7 +151,10 @@ async function NinosContent() {
 export default function NinosPage() {
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">
-      <AppSidebar active="ninos" nuevaPublicacion />
+      {/* La sidebar lee el perfil (cookies): lleva su propio boundary. */}
+      <Suspense fallback={null}>
+        <AppSidebar active="ninos" nuevaPublicacion />
+      </Suspense>
       <main className="min-w-0 flex-1 md:h-screen md:overflow-y-auto">
         <Suspense fallback={null}>
           <NinosContent />

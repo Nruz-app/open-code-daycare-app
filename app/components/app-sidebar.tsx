@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import { connection } from "next/server";
 
 import { LogoutButton } from "@/app/components/logout-button";
 import { BotonNuevaPublicacion } from "@/app/feed/crear-publicacion";
+import { getSession } from "@/app/lib/dal";
 
 type NavKey = "feed" | "ninos" | "avisos" | "cuenta";
 
@@ -101,10 +103,31 @@ type AppSidebarProps = {
   nuevaPublicacion?: boolean;
 };
 
-export function AppSidebar({
+/** Etiqueta visible del rol. La posición ("Soles", etc.) sale de la guardería del perfil. */
+const ETIQUETA_ROL: Record<"staff" | "family", string> = {
+  staff: "Maestra",
+  family: "Familia",
+};
+
+export async function AppSidebar({
   active = "feed",
   nuevaPublicacion = false,
 }: AppSidebarProps) {
+  // El chip depende de la sesión (cookies y expiración del token): la sidebar
+  // es siempre dinámica y no participa del prerender del shell.
+  await connection();
+  // Perfil real de la persona autenticada (las pantallas que montan la
+  // sidebar ya son dinámicas: <Suspense> o `instant = false`).
+  const perfil = await getSession();
+  const nombre = perfil?.fullName ?? "Mi cuenta";
+  const inicial = nombre.charAt(0).toUpperCase();
+  const subtitulo = [
+    perfil ? ETIQUETA_ROL[perfil.role] : null,
+    perfil?.guarderia,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-line bg-surface px-4 pt-2.5 md:hidden">
@@ -131,7 +154,7 @@ export function AppSidebar({
           </a>
           <span className="flex-1" />
           <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[#f2937a] font-display text-sm font-semibold text-white">
-            C
+            {inicial}
           </div>
           <LogoutButton />
         </div>
@@ -212,11 +235,15 @@ export function AppSidebar({
       <div className="mt-2.5 border-t border-line pt-3.5">
         <div className="flex items-center gap-[11px] px-2 py-1.5">
           <div className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-[#f2937a] font-display text-base font-semibold text-white">
-            C
+            {inicial}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-extrabold text-ink">Caro Giménez</div>
-            <div className="text-xs text-ink-soft">Maestra · Soles</div>
+            <div className="truncate text-sm font-extrabold text-ink">
+              {nombre}
+            </div>
+            {subtitulo ? (
+              <div className="truncate text-xs text-ink-soft">{subtitulo}</div>
+            ) : null}
           </div>
           <LogoutButton />
         </div>

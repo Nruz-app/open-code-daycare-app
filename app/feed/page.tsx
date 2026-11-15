@@ -184,7 +184,8 @@ function PostCard({ post }: { post: FeedPost }) {
 
 async function FeedContent() {
   await connection();
-  await requireRole("staff");
+  const perfil = await requireRole("staff");
+  const primerNombre = perfil.fullName.split(" ")[0];
 
   return (
     <NuevaPublicacionProvider>
@@ -197,7 +198,7 @@ async function FeedContent() {
                 GUARDERÍA · SALA SOLES
               </div>
               <h1 className="font-display text-[30px] font-semibold text-ink">
-                Buenas, Caro
+                Buenas, {primerNombre}
               </h1>
               <p className="mt-[5px] text-[14.5px] text-ink-muted">
                 12 niños · martes 17 jun

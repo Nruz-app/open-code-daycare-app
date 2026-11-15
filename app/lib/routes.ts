@@ -1,9 +1,10 @@
-import type { UserRole } from "@/app/lib/session";
-
 /**
  * Configuración de rutas de la app.
  * Sin dependencias de servidor: se puede importar desde `proxy.ts` y desde la DAL.
  */
+
+/** Roles de la app. La DB usa `staff | parent | admin` y la DAL los mapea. */
+export type UserRole = "staff" | "family";
 
 /** Rutas accesibles sin sesión. */
 export const PUBLIC_ROUTES = [
