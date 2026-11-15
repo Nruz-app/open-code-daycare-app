@@ -38,6 +38,9 @@ Load a supporting skill **only when the feature justifies it** (conditional, not
 | `interface-design` | The spec defines or reshapes product UI (dashboards, lists, forms, tools) | Measurable acceptance criteria: tokens, states, hierarchy |
 | `frontend-design` | The spec introduces a new visual direction or restyling | Aesthetic and typography decisions to fold into the criteria |
 | `context7-mcp` | The plan depends on framework conventions (Next.js, Tailwind, Supabase) | Current library docs to validate assumptions before Phase 3 writes the plan |
+| `postgresql-table-design` | The feature creates Postgres tables or reviews an existing schema | Column types, keys, constraints and indexes for the data model section |
+| `sql-optimization-patterns` | The feature defines queries or indexes over real data | Indexing strategy to fold into the plan |
+| `database-migration` | The feature alters an existing schema | Migration sequencing and zero-downtime concerns; the repo's `supabase/migrations/` convention always wins |
 | anything else found | Only if its frontmatter clearly matches the feature | Judge from the description and say why you skipped it |
 
 Rules:

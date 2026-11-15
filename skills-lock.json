@@ -13,6 +13,12 @@
       "skillPath": "changelog-generator/SKILL.md",
       "computedHash": "5434338dd0ea8f61988d1e9ab2a224a5b461c7ea2e7b7f33db56eab6fb6a4db1"
     },
+    "database-migration": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/framework-migration/skills/database-migration/SKILL.md",
+      "computedHash": "fc0dcc47afdc6ffc37d79578fb7add5e627c650ef8a71cc6fe8484525f6e624e"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
@@ -25,6 +31,12 @@
       "skillPath": ".claude/skills/interface-design/SKILL.md",
       "computedHash": "1491bb966a2c289550e0d6eb25c19b0570ead479240f6b2ba5766d94599ea744"
     },
+    "postgresql-table-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/database-design/skills/postgresql-table-design/SKILL.md",
+      "computedHash": "c2d9f4b5037b4320be0cc2489eeb287d3147477ae1f48b33f5f897e2c562ed06"
+    },
     "spec": {
       "source": "klerith/fernando-skills",
       "sourceType": "github",
@@ -36,6 +48,12 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/spec-impl/SKILL.md",
       "computedHash": "9ad5b48f60e7d312b5ed5f6bb293fa0942a21eb0b8f267bcc50bee550c687afd"
+    },
+    "sql-optimization-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/sql-optimization-patterns/SKILL.md",
+      "computedHash": "99731ea4f27308d7082ae2931a08159e6e91352a5b7658b0b1f68a9e677abd4c"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",

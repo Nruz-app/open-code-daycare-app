@@ -40,6 +40,9 @@ This repo keeps helper skills in `.agents/skills/`. At the start of Phase 3 — 
 | `interface-design` | Creates or reshapes product UI (dashboards, lists, forms, tools) | Craft and consistency guidance for the UI being built |
 | `frontend-design` | Introduces a new visual direction or restyles screens | Aesthetic direction, typography, distinctive choices |
 | `context7-mcp` | Uses library APIs (Next 16, Tailwind v4, Supabase client) | Current docs instead of memory |
+| `postgresql-table-design` | Creates a new Postgres table or reviews one before it ships (types, keys, constraints, indexes) | PostgreSQL-specific best practices for the DDL written into `supabase/migrations/` |
+| `sql-optimization-patterns` | Writes queries or indexes that will hit real data | Indexing strategy and query-shape patterns for the DAL |
+| `database-migration` | Alters or evolves an existing schema | Zero-downtime and rollback patterns; **the repo convention wins**: new file in `supabase/migrations/` named `YYYYMMDDHHMMSS_snake_case.sql`, one logical change, plain DDL/DML — no `if not exists`, no `drop`, no manual transactions, applied migrations never edited |
 | **Supabase MCP** (`tools.supabase.*` in Code Mode) | Touches database schema | Follow the repo's migration convention: new file in `supabase/migrations/` named `YYYYMMDDHHMMSS_snake_case.sql` (UTC timestamp, one logical change, plain DDL/DML — no `if not exists`, no `drop`, no manual transactions), apply it with `apply_migration({ name, query })` where `name` is the slug without timestamp, and confirm with `list_migrations()`. Applied migrations are never edited; fixes go in a new file |
 | `changelog-generator` | After the last step only | Drafts the changelog entry from the branch's accumulated diff (see below) |
 
