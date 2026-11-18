@@ -7,19 +7,21 @@ reglas y el contexto del proyecto; el detalle completo está en [`AGENTS.md`](./
 ## Precedencia de la documentación
 
 1. **`AGENTS.md`** — fuente de verdad operativa para agentes.
-2. **`README.md`** — manual de producto, instalación y enlaces.
+2. **`README.md`** — manual de producto, instalación, capturas y enlaces.
 3. **`CLAUDE.md`** (este archivo) — resumen y adaptaciones para Claude Code.
 
-Si encuentras una contradicción, gana `AGENTS.md` en lo operativo y `README.md` en lo funcional.
-No dupliques decisiones nuevas en tres archivos: actualiza la fuente correspondiente y enlázala.
+Si hay contradicción, gana `AGENTS.md` en lo operativo y `README.md` en lo funcional. No dupliques
+decisiones nuevas en tres archivos: actualiza la fuente correspondiente y enlázala.
 
 ## Contexto del proyecto
 
 - Portal de guardería en español con dos roles: `staff` y `family`.
 - Next.js **16.4.5**, React **19.3.0**, TypeScript **5.9.3**, Tailwind CSS **4.3.5**.
+- Autenticación real con **Supabase Auth** (email y contraseña) y datos en Postgres con RLS.
+- El SDK es `@supabase/ssr`; **la única vía de datos es `app/lib/dal.ts`** (sin ORM ni tipos
+  generados de la DB).
 - La UI se construye a partir de `references/pantallas/*.dc.html` y se compara con
-  `references/screenshots/`.
-- Hay autenticación de demostración con cookie HMAC-SHA256. **No hay base de datos ni persistencia.**
+  `references/screenshots/`; las capturas reales del README están en `docs/capturas/`.
 - El producto y los comentarios del código se escriben en **español**.
 
 ## Inicio rápido
@@ -28,25 +30,27 @@ No dupliques decisiones nuevas en tres archivos: actualiza la fuente correspondi
 npm install
 Copy-Item .env.example .env.local   # PowerShell
 # cp .env.example .env.local        # bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-# pega el resultado como SESSION_SECRET en .env.local
+# completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 npm run dev
 ```
 
-Abre <http://localhost:3000>. El botón **"Entrar al feed"** crea la sesión demo de `staff-demo`.
+Abre <http://localhost:3000> y entra con `staff@guarderia-demo.test` / `demo1234`
+(staff, Guardería Sala Soles). No hay `SESSION_SECRET`: la sesión vive en las cookies `sb-*`.
 
 ## Reglas no negociables
 
 - Responde en **español**.
-- **No inventes** resultados de comandos, Playwright, Context7 ni APIs.
+- **No inventes** resultados de comandos, Playwright, Context7, Supabase ni APIs.
 - **No hagas commits** salvo que la persona lo pida explícitamente.
-- **No cambies el estado** de una spec (`Draft`, `Approved`, `Implemented`, etc.); esa decisión es
+- **No cambies el estado** de una spec (`Draft`, `Aprobado`, `Implementado`, etc.); esa decisión es
   humana.
 - **No edites código** para hacer pasar una verificación.
 - **No leas ni imprimas** `.env.local` ni secretos.
 - No borres trabajo sin revisar `git status` y el diff.
 - No agregues un runner de tests: el proyecto no tiene uno. Verifica con lint, `tsc`, `build` y
   Playwright.
+- No toques los bloques `nextjs-agent-rules` / `nextjs-agent-feedback` de `AGENTS.md`: los escribe
+  `next dev`.
 
 ## Comandos
 
@@ -66,11 +70,14 @@ npx tsc --noEmit
 npm run build
 ```
 
+`npm run lint` ya falla por deuda preexistente en `references/pantallas/support.js` y
+`.agents/skills/**` (no es código de la app). No lo atribuyas a tu cambio ni lo maquilles.
+
 ## Flujo de trabajo recomendado
 
 ### 1. Explorar antes de tocar
 
-- Lee `AGENTS.md`, la spec correspondiente y los archivos que la spec menciona.
+- Lee `AGENTS.md`, la spec correspondiente y los archivos que menciona.
 - Revisa `git status --short` y `git branch --show-current`.
 - Si la tarea es grande, empieza por una spec.
 
@@ -82,101 +89,94 @@ En OpenCode:
 /spec <descripción de una frase>
 ```
 
-En Claude Code, si el comando no está disponible, pide:
+En Claude Code, si el comando no está disponible:
 
 ```text
 Lee .agents/skills/spec/SKILL.md y sigue su flujo para diseñar una spec de: <descripción>.
 ```
 
-Reglas:
-
-- La skill hace preguntas de aclaración antes de escribir. No las saltes.
-- El archivo se guarda en `specs/NN-slug.md` en estado `Draft`.
-- No se escribe código en esta fase.
-- La persona revisa y cambia el estado a `Approved` cuando corresponde.
+La skill hace preguntas de aclaración antes de escribir. El archivo se guarda en `specs/NN-slug.md`
+en estado `Draft`. No se escribe código en esta fase.
 
 ### 3. Implementar una spec aprobada
 
-En OpenCode:
-
 ```text
-/spec-impl 03-login-activar-cuenta
+/spec-impl 10-busqueda-alta-ninos
 ```
 
-En Claude Code:
-
-```text
-Lee .agents/skills/spec-impl/SKILL.md y sigue sus fases para implementar specs/03-login-activar-cuenta.md.
-```
-
-Reglas:
-
-- Solo si el estado significa **Aprobado**.
-- Rama `spec-NN-slug` (controlado por `specs/.spec-config.yml`, `AutoCreateBranch: true`).
-- Implementa paso a paso y pausa para revisar el diff.
-- **Nunca hagas commit automático.**
-- Si algo es ambiguo, detente y pregunta; no improvises.
+Reglas: solo si el estado significa **Aprobado**; rama `spec-NN-slug` (controlado por
+`specs/.spec-config.yml`); paso a paso; **nunca commits automáticos**; si algo es ambiguo, pregunta.
 
 ### 4. Verificar
 
-En OpenCode:
-
 ```text
-/spec-verify 03
+/spec-verify 10
 ```
 
-En Claude Code:
+Marca `[x]` solo lo probado en esa ejecución, distingue **fallo** de **bloqueo**, solo edita
+`specs/*.md` y agrega `## Verificación`.
+
+### 5. Migraciones
 
 ```text
-Lee .opencode/agents/spec-verify.md y verifica specs/03-login-activar-cuenta.md con evidencia.
+/db-migrate <tarea>
 ```
 
-Reglas:
-
-- Marca `[x]` solo lo que probaste en esta ejecución.
-- Distingue **fallo** (la prueba salió mal) de **bloqueo** (no se pudo probar).
-- Solo puedes editar `specs/*.md`; no toques código, configuración ni `.env.local`.
-- Agrega la sección `## Verificación` con tabla, fallos, bloqueos y hallazgos de Context7.
+El subagente `db-migrator` inventaría `supabase/migrations/` contra `list_migrations`, aplica las
+pendientes y crea archivos nuevos con las convenciones. Solo escribe en `supabase/migrations/*.sql`.
 
 ## Arquitectura: autenticación y rutas
 
 - `proxy.ts` sustituye a `middleware.ts` en Next 16 y corre en runtime Node.js.
-- `proxy.ts` hace una comprobación **optimista** de la cookie; la autorización real está en
-  `app/lib/dal.ts`.
+- `proxy.ts` hace una comprobación **optimista** de los claims (`user_metadata.role`); la
+  autorización real está en `app/lib/dal.ts`.
 - Antes de tocar datos, llama a:
-  - `getSession()` → `Session | null`.
+  - `getSession()` → `Perfil | null`, sin redirigir.
   - `verifySession()` → redirige a `/login`.
   - `requireRole("staff" | "family")` → exige rol.
-- La sesión es una cookie `session` firmada con HMAC-SHA256 y `SESSION_SECRET` (32+ caracteres,
-  en `.env.local`). Sin secreto, falla cerrada.
-- El enrutamiento es **deny-by-default**. Registra rutas públicas o por rol en
-  `PUBLIC_ROUTES`, `STAFF_ONLY`, `FAMILY_ONLY` o `HOME_BY_ROLE` de `app/lib/routes.ts`.
-- `/login` firma `staff-demo` sin contraseña. El selector Familia está deshabilitado.
-- `?next=` se valida contra `STAFF_ONLY` para evitar open redirects.
+- La DB usa el enum `user_role` (`staff | parent | admin`); `mapearRol` lo traduce a `staff | family`.
+- Un usuario autenticado **sin fila en `users`** se trata como no autenticado (falla cerrado).
+- El enrutamiento es **deny-by-default**. Registra rutas públicas o por rol en `PUBLIC_ROUTES`,
+  `STAFF_ONLY`, `FAMILY_ONLY` o `HOME_BY_ROLE` de `app/lib/routes.ts`.
+- `/login` es login real con Supabase Auth; `?next=` se valida con `destinoSeguro` contra las rutas
+  del rol (anti open redirect).
+- `proxy.ts` manda al home del rol a cualquier sesión que entre en una ruta pública, incluida
+  `/activar-cuenta`.
 
 ## Mapa de archivos clave
 
 | Archivo | Qué hace |
 | --- | --- |
 | `proxy.ts` | Redirecciones y separación por rol (optimista). |
-| `app/lib/dal.ts` | Autorización real. |
-| `app/lib/session.ts` | Firma/verificación de la cookie. |
+| `app/lib/dal.ts` | Autorización real, consultas y tipos de UI. |
 | `app/lib/routes.ts` | Rutas públicas y por rol. |
-| `app/login/actions.ts` | Server Action `loginAsStaff`. |
-| `app/login/login-form.tsx` | Formulario cliente con selector Personal/Familia. |
-| `app/feed/page.tsx` | Home del staff con posts de ejemplo. |
-| `app/ninos/page.tsx` | Listado de niños. |
-| `app/ninos/[id]/page.tsx` | Perfil del niño. |
-| `app/ninos/agregar-nino.tsx` | Modal de alta con validación. |
-| `app/lib/mock-ninos.ts` | Datos de ejemplo. |
-| `app/lib/fecha-nacimiento.ts` | Máscara y validación `dd/mm/aaaa`. |
-| `app/globals.css` | Tailwind v4 y tokens de diseño. |
-| `app/layout.tsx` | Fredoka/Nunito y metadata. |
-| `specs/` | Specs `NN-slug.md`. |
-| `.opencode/commands/` | Comandos `/spec`, `/spec-impl`, `/spec-imp`, `/spec-verify`. |
-| `.opencode/agents/spec-verify.md` | Agente verificador. |
-| `.agents/skills/` | Skills `spec`, `spec-impl`, `context7-mcp`. |
-| `.github/workflows/opencode.yml` | Agente `/oc` y `/opencode`. |
+| `app/login/actions.ts` | Server Actions `login` y `logout`. |
+| `app/feed/page.tsx` | Home del staff con posts mock. |
+| `app/ninos/page.tsx` | Listado real desde `children`. |
+| `app/ninos/gestion-ninos.tsx` | Cliente: buscador, tarjetas y grupos por sala. |
+| `app/ninos/[id]/page.tsx` | Perfil del niño (`instant = false`). |
+| `app/ninos/actions.ts` | `altaNino` e `invitarPadre`. |
+| `app/ninos/agregar-nino.tsx` | Diálogo de alta (persiste). |
+| `app/ninos/vincular-padre.tsx` | Diálogo de invitación (persiste). |
+| `app/components/nueva-publicacion-provider.tsx` | Provider del diálogo de publicación. |
+| `utils/supabase/` | `client.ts`, `server.ts` y `proxy.ts` (`updateSession`). |
+| `supabase/migrations/` | 20 migraciones aplicadas por MCP. |
+| `docs/capturas/` | Capturas del README (versionadas). |
+| `specs/` | Specs `NN-slug.md` (01–11). |
+
+## Datos y base de datos
+
+- Proyecto Supabase: `btknjzobaqtekofvfsof`.
+- Niños, salas, guarderías e invitaciones son reales y se leen por la DAL.
+- Feed y "crear publicación" siguen en mock; `/activar-cuenta` usa datos fijos.
+- Lo persistido va **en inglés** y la DAL traduce: alergias (`peanut` → `MANÍ`) y parentesco
+  (`mother` → `Mamá`).
+- Sin tipos generados, las filas se castean (`as unknown as`) y los embeds pueden llegar como objeto
+  o como lista.
+- **Ocho tablas sin políticas RLS**: `posts`, `comments`, `reactions`, `post_children`,
+  `post_photos`, `parent_children`, `daily_summaries` y `devices`. Por eso `parent_children` llega
+  vacío y todos los niños muestran 0 padres. No es un bug de la UI.
+- Las migraciones aplicadas no se editan: cualquier corrección va en un archivo nuevo.
 
 ## Convenciones y trampas
 
@@ -184,54 +184,45 @@ Reglas:
 - Tailwind v4 es CSS-first. No agregues `tailwind.config.*` ni PostCSS.
 - `next.config.ts` activa `cacheComponents`, `partialPrefetching`,
   `experimental.agentFeedback` y el loader de `@tailwindcss/turbopack`.
-- Revisa `node_modules/next/dist/docs/` antes de cambiar data fetching o caché.
-- `app/page.tsx` solo redirige; el proxy decide el destino.
-- En `app/ninos/[id]/page.tsx`, `export const instant = false` es intencional para que
-  `notFound()` funcione con `cacheComponents`.
+- Con `cacheComponents`, cualquier lectura de `connection()`, `cookies()` o `searchParams` en una
+  página debe ir dentro de `<Suspense>` (patrón `XContent` + `<Suspense>`).
+- En `app/ninos/[id]/page.tsx`, `export const instant = false` es intencional para combinar
+  `connection()` y `notFound()`.
 - `allowedDevOrigins` depende de la IP de la LAN; actualízalo si cambia.
+- Revisa `node_modules/next/dist/docs/` antes de cambiar data fetching o caché.
 - Los textos visibles y los comentarios van en español.
 
 ## Diseño
 
 - **Fredoka** para títulos (`font-display`) y **Nunito** para texto (`font-sans`).
-- Paleta cálida: `cream`, `surface`, `line`, `ink`, `coral`, `sky`, `mint`, `lilac`.
+- Paleta cálida: `cream`, `paper`, `surface`, `line*`, `ink*`, `coral*`, `sky*`, `mint*`, `lilac*`.
 - Utilidades: `bg-cream`, `text-ink`, `rounded-card`, `shadow-card`.
 - Compara con `references/pantallas/*.dc.html` y `references/screenshots/`.
-- No cuentes el overlay de Next Dev Tools como diferencia de diseño.
-
-## Datos
-
-- Sin base de datos ni persistencia.
-- Feed: publicaciones definidas en `app/feed/page.tsx`.
-- Niños: `app/lib/mock-ninos.ts` y `getNino(id)`.
-- "Agregar niño": valida y confirma en pantalla, no guarda.
-- Fechas: `app/lib/fecha-nacimiento.ts`.
-- Cualquier dato real futuro debe pasar por la DAL.
+- No cuentes el overlay de Next Dev Tools como diferencia; para capturas públicas usa
+  `npm run build && npm run start`.
 
 ## Specs actuales
 
-| Spec | Estado | Tema |
-| --- | --- | --- |
-| `specs/01-diseno-feed-home.md` | Implementado | Feed y base visual. |
-| `specs/02-diseno-ninos-perfil.md` | Implementado | Niños y perfil. |
-| `specs/03-login-activar-cuenta.md` | Implementado | Login y activación. |
+Todas en estado **Implementado**: `01-diseno-feed-home` (2026-11-09), `02-diseno-ninos-perfil`
+(2026-11-10), `03-login-activar-cuenta` (2026-11-10), `04-vincular-padre` (2026-11-10),
+`05-crear-publicacion-feed` (2026-11-10), `06-crear-tabla-daycares` (2026-11-12),
+`07-crear-tabla-users` (2026-11-13), `08-conexion-supabase` (2026-11-13),
+`09-autenticacion-supabase` (2026-11-15), `10-busqueda-alta-ninos` (2026-11-15) y
+`11-vincular-padre-supabase` (2026-11-17).
 
 ## Skills y comandos
 
-- En este repo las skills viven en `.agents/skills/`:
-  - `spec/SKILL.md` (+ `template.md`).
-  - `spec-impl/SKILL.md`.
-  - `context7-mcp/SKILL.md`.
+- Skills del proyecto en `.agents/skills/`: `spec`, `spec-impl`, `context7-mcp` y apoyo
+  (`brainstorming`, `database-migration`, `postgresql-table-design`, `sql-optimization-patterns`,
+  `frontend-design`, `interface-design`, `vercel-react-best-practices`, `changelog-generator`).
 - `.claude/skills/` existe por compatibilidad; la fuente real está en `.agents/skills/`.
-- Si Claude Code no descubre una skill, **léela directamente** con la herramienta de lectura y
-  sigue sus instrucciones.
+- Si Claude Code no descubre una skill, **léela directamente** y sigue sus instrucciones.
 - `skills-lock.json` guarda la procedencia y el hash de las skills. Origen:
   <https://github.com/klerith/fernando-skills>.
-- Los comandos `/spec`, `/spec-impl`, `/spec-imp` y `/spec-verify` son de OpenCode
-  (`.opencode/commands/`). En Claude Code se invocan cargando el archivo correspondiente.
-- Las piezas del flujo de specs descubren y cargan condicionalmente skills de apoyo de
-  `.agents/skills/`; el detalle está en las secciones "Supporting skills" de sus `SKILL.md` y en el
-  agente `spec-verify`.
+- Comandos de OpenCode en `.opencode/commands/`: `/spec`, `/spec-impl`, `/spec-imp`, `/spec-verify`
+  y `/db-migrate`.
+- Agentes en `.opencode/agents/`: `spec-verify`, `db-migrator`, `db-security-auditor`,
+  `accessibility-checker` y `react-best-practices`.
 
 ## MCP
 
@@ -243,17 +234,12 @@ Las herramientas MCP aparecen como herramientas directas (`mcp__context7__*`,
 ```bash
 claude mcp list
 claude mcp add playwright npx @playwright/mcp@latest
-claude mcp add --scope user --header "Authorization: Bearer YOUR_API_KEY" --transport http context7 https://mcp.context7.com/mcp
+claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp
 ```
-
-- Playwright MCP: <https://github.com/microsoft/playwright-mcp>
-- Context7: <https://context7.com>
-- Instalación por cliente: <https://context7.com/docs/resources/all-clients>
-- Documentación de Claude Code MCP: <https://code.claude.com/docs/en/mcp>
 
 ### Si trabajas en OpenCode (Code Mode)
 
-Las herramientas MCP se llaman **dentro de `execute`**:
+Las herramientas MCP se llaman **dentro de `execute`** y cada llamada termina con `return`:
 
 ```js
 const library = await tools.context7["resolve-library-id"]({
@@ -270,93 +256,56 @@ const result = await tools.playwright.browser_navigate({
 return result;
 ```
 
-Reglas:
-
-- Termina cada `execute` con `return`.
-- Si las herramientas directas fallan con "No tool named…", usa `execute`.
-- No uses `browser_run_code_unsafe`.
-- `search` solo existe dentro de `execute` y no hace falta para MCP.
-
 ### Servidores del proyecto
 
 | Servidor | Tipo | Comando / URL | Configuración |
 | --- | --- | --- | --- |
 | `playwright` | Local (stdio) | `npx @playwright/mcp@latest` | `opencode.json` |
+| `supabase` | Remoto (HTTP) | `https://mcp.supabase.com/mcp?project_ref=btknjzobaqtekofvfsof…` | `opencode.json` |
 | `context7` | Remoto (HTTP) | `https://mcp.context7.com/mcp` | Global del entorno |
 
-Comandos de OpenCode:
-
-```bash
-opencode mcp list
-opencode mcp add playwright -- npx @playwright/mcp@latest
-opencode mcp add context7 --url https://mcp.context7.com/mcp
-opencode mcp auth context7
-opencode mcp logout context7
-```
-
-### Context7
-
-| Herramienta | Parámetros | Uso |
-| --- | --- | --- |
-| `resolve-library-id` | `libraryName`, `query` | Resolver el ID de la librería. |
-| `query-docs` | `libraryId`, `query`, `language?` | Consultar un concepto concreto. |
-
-- Una consulta por concepto.
-- Cita `libraryId`, concepto y conclusión.
-- Si Context7 no responde, usa `node_modules/next/dist/docs/` y dilo.
-
-### Playwright
-
-Herramientas habituales:
-
-| Herramienta | Uso |
-| --- | --- |
-| `browser_navigate` | Abrir URL. |
-| `browser_snapshot` | Leer accesibilidad y obtener `ref`. |
-| `browser_click` / `browser_type` | Interactuar. |
-| `browser_evaluate` | Leer estilos y medidas. |
-| `browser_resize` | Breakpoints. |
-| `browser_take_screenshot` | Capturas. |
-| `browser_console_messages` | Errores de consola. |
-| `browser_network_requests` | Red. |
-| `browser_tabs` | Sesiones aisladas. |
-
-Reglas:
+Reglas de Playwright:
 
 - Verifica la URL activa antes de capturar.
-- Capturas sin `filename` van a `.playwright-mcp/` (ignorado por Git).
+- Capturas del README → `docs/capturas/` (se versiona). Capturas de trabajo sin `filename` →
+  `.playwright-mcp/` (ignorado).
 - No borres `.playwright-mcp/` con shell.
-- Usa contextos aislados para el login.
-- No envíes formularios que no sean el login demo.
+- Usa contextos aislados para el login y no envíes formularios que no sean el login demo.
+- No uses `browser_run_code_unsafe`.
 - Playwright MCP **no es una frontera de seguridad**.
+
+Reglas de Supabase MCP:
+
+- No sustituye a la DAL: la app usa el SDK de `utils/supabase/`.
+- `apply_migration({ name, query })` con el SQL completo del archivo.
+- Si el MCP pide autenticación, inicia sesión desde `/mcps`, no por shell.
 
 ## Checklist antes de responder "listo"
 
-- [ ] `npm run lint` pasa.
 - [ ] `npx tsc --noEmit` pasa.
 - [ ] `npm run build` pasa (si el cambio lo amerita).
+- [ ] `npm run lint` se reporta tal cual, sin atribuir la deuda preexistente al cambio.
 - [ ] Probé la pantalla o el flujo con Playwright y comparé con la referencia.
 - [ ] Los textos nuevos están en español.
 - [ ] No toqué `.env.local` ni secretos.
-- [ ] No hice commits sin pedido.
+- [ ] No hice commits ni cambié estados de spec sin pedido.
 - [ ] Si verifiqué una spec, cada `[x]` tiene evidencia y agregué `## Verificación`.
 - [ ] Actualicé la documentación si cambiaron comandos, rutas, MCP o flujo de specs.
-
-> **Estado conocido (2026-11-10):** `tsc` pasa; `lint` y `build` tienen fallos **preexistentes**
-> (`references/pantallas/support.js` y `/login` con `searchParams` fuera de `Suspense`). No los
-> atribuyas a tu cambio ni los maquilles. Si tu tarea los toca, propón una spec aparte.
+- [ ] Si regeneré capturas del README, quedaron en `docs/capturas/` y sin datos de prueba.
 
 ## Errores comunes
 
 | Síntoma | Solución |
 | --- | --- |
-| Login en bucle | Define `SESSION_SECRET` (32+ caracteres) en `.env.local` y reinicia. |
+| Login falla o no refresca la sesión | Completa las dos variables `NEXT_PUBLIC_SUPABASE_*` en `.env.local` y reinicia. |
+| Usuario demo rechazado | Falta `seed_staff_user` o la fila en `users`; un usuario sin perfil falla cerrado. |
+| Todos los niños con 0 padres | `parent_children` no tiene políticas RLS; se arregla con una migración. |
 | Falta `next` | `npm install`. |
 | Node viejo | Usa Node 20.9+ (probado con 22.23.4). |
-| Estilos roto | No agregues configuración de Tailwind v3; usa `@theme` en `app/globals.css`. |
+| Estilos rotos | No agregues configuración de Tailwind v3; usa `@theme` en `app/globals.css`. |
 | `middleware.ts` no corre | Renómbralo a `proxy.ts`. |
 | Imports `@/lib/...` fallan | Usa `@/app/lib/...`. |
-| Captura fuera del workspace | Omite `filename`; se guarda en `.playwright-mcp/`. |
+| Captura fuera del workspace | Usa `docs/capturas/...` o omite `filename`. |
 | Origen LAN rechazado | Actualiza `allowedDevOrigins` en `next.config.ts`. |
 | Spec bloqueada | Falta servidor, sesión o `.env.local`; repórtalo como bloqueo. |
 
@@ -367,6 +316,8 @@ Reglas:
 - Next.js: <https://nextjs.org/docs>
 - Next.js `proxy.ts`: <https://nextjs.org/docs/app/api-reference/file-conventions/proxy>
 - Tailwind v4: <https://tailwindcss.com/docs>
+- Supabase Auth con Next.js: <https://supabase.com/docs/guides/auth/server-side/nextjs>
+- Supabase RLS: <https://supabase.com/docs/guides/database/postgres/row-level-security>
 - OpenCode: <https://opencode.ai/docs/>
 - OpenCode MCP: <https://opencode.ai/docs/mcp-servers/>
 - OpenCode comandos: <https://opencode.ai/docs/commands/>

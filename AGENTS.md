@@ -10,11 +10,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # OpenDayCare — notas para agentes
 
-Maqueta funcional de un portal de guardería en español, con roles `staff` | `family` y login de
-demostración. **La app no persiste nada**: no hay SDK de Supabase ni ORM; los datos viven en módulos
-(`app/lib/mock-ninos.ts`, `const posts` del feed). Manual de producto en [`README.md`](./README.md).
-`CLAUDE.md` remite a este archivo como fuente operativa, pero su tabla de specs solo cubre las
-01–03: no lo uses para saber qué specs existen.
+Portal de guardería en español con roles `staff` | `family`. Ya no es una maqueta de auth: hay
+Supabase Auth real (email y contraseña) y `/ninos` lee y escribe la base (niños e invitaciones).
+El SDK es `@supabase/ssr` y **la única vía de datos es `app/lib/dal.ts`**; sin ORM ni tipos
+generados de la DB. El feed sigue en mock (`const posts` en `app/feed/page.tsx`).
+
+`README.md` y `CLAUDE.md` describen la era pre-Supabase (cookie HMAC, `SESSION_SECRET`, login demo
+`staff-demo`, "sin persistencia"): están desactualizados y no hay que copiar de ahí. Las specs
+vigentes son `specs/01` a `specs/11`.
 
 ## Comandos y verificación
 
@@ -30,37 +33,44 @@ demostración. **La app no persiste nada**: no hay SDK de Supabase ni ORM; los d
 - No hay tests ni runner. **No agregues ni ejecutes `npm test`.**
 - Node.js 20.9+ (probado con 22.23.4).
 
-Estado re-verificado el 2026-11-13:
+Estado re-verificado el 2026-11-18:
 
 | Comprobación | Resultado | Detalle |
 | --- | --- | --- |
 | `npx tsc --noEmit` | ✅ | Sin errores. |
 | `npm run lint` | ❌ preexistente | 8 errores y 23 avisos: `references/pantallas/support.js` (bundle de las maquetas) y `.agents/skills/brainstorming/scripts/` (skill instalada, no es código de la app). |
-| `npm run build` | ❌ preexistente | Muere prerenderizando `/login` (`searchParams` fuera de `<Suspense>` con `cacheComponents`). El build se corta ahí: no hay evidencia de las rutas siguientes. |
+| `npm run build` | ✅ | Pasa completo desde la SPEC 09: `/login` envuelve `searchParams` en `<Suspense>`. |
 
-No atribuyas estos fallos a tu cambio, no los maquilles y no edites los bundles para "arreglar" lint.
-Arreglos reales: ignorar `references/**` y los scripts de `.agents/skills/**` en `globalIgnores` de
-`eslint.config.mjs` (hoy solo ignora `.next`, `out`, `build` y `next-env.d.ts`) y
-`export const instant = false` o `<Suspense>` en `/login`. Van en una spec aparte.
-Las tablas de verificación de `README.md` y `CLAUDE.md` (2026-11-10) están desactualizadas
-(cuentan 2 errores de lint); gana la de este archivo.
+No atribuyas el fallo de lint a tu cambio, no lo maquilles y no edites los bundles para "arreglar".
+Arreglo real: ignorar `references/**` y los scripts de `.agents/skills/**` en `globalIgnores` de
+`eslint.config.mjs` (hoy solo ignora `.next`, `out`, `build` y `next-env.d.ts`). Va en una spec aparte.
+Las tablas de verificación de `README.md` y `CLAUDE.md` están desactualizadas; gana la de este archivo.
 
 ## Setup
 
-- `SESSION_SECRET` es obligatorio (32+ caracteres) en `.env.local` (plantilla en `.env.example`). Sin
-  él `decodeSession` devuelve `null` y `encodeSession` lanza: no hay sesión y el login no puede
-  completarse. No leas ni imprimas `.env.local`.
+- `.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` del
+  proyecto Supabase (plantilla en `.env.example`). Sin ellas fallan el cliente de servidor y el
+  refresh de sesión del proxy. No hay `SESSION_SECRET`: la cookie HMAC propia se eliminó con la
+  SPEC 09. No leas ni imprimas `.env.local`.
+- Credenciales demo seedeadas: `staff@guarderia-demo.test` / `demo1234` (rol `staff`, guardería
+  "Guardería Sala Soles"). Úsalo para entrar con Playwright; no crees usuarios ni envíes otros
+  formularios.
 - `next dev` escribe y restaura los bloques `nextjs-agent-rules` / `nextjs-agent-feedback` de este
   archivo: no los borres.
 
 ## Autenticación y rutas (lo no obvio)
 
 - Esta versión de Next usa `proxy.ts` en la raíz; `middleware.ts` está deprecado. `proxy.ts` corre en
-  runtime Node.js.
-- `proxy.ts` solo hace una comprobación **optimista** de la cookie firmada. La autorización real es
-  `app/lib/dal.ts`: `getSession`, `verifySession` o `requireRole(role)` antes de tocar datos. Hoy las
-  tres páginas con datos (`/feed`, `/ninos`, `/ninos/[id]`) usan `requireRole("staff")`.
-- La sesión es una cookie stateless HMAC-SHA256 (`app/lib/session.ts`); roles `staff | family`.
+  runtime Node.js y llama a `updateSession()` de `utils/supabase/proxy.ts` (renombrado desde
+  `middleware.ts`: en `utils/supabase/` el nombre es libre, Next solo escanea la raíz).
+- La sesión vive en las cookies `sb-*` de Supabase. `proxy.ts` solo hace una comprobación
+  **optimista** del rol leído de los claims (`user_metadata.role`: `staff|admin` → `staff`,
+  `parent` → `family`). La autorización real es `app/lib/dal.ts`: `getSession`, `verifySession` o
+  `requireRole(role)` antes de tocar datos. Las páginas con datos (`/feed`, `/ninos`,
+  `/ninos/[id]`) y las Server Actions `altaNino` e `invitarPadre` usan `requireRole("staff")`.
+- Roles de la app: `staff | family` (`app/lib/routes.ts`). La DB usa el enum `user_role`
+  (`staff | parent | admin`); la DAL lo mapea con `mapearRol`. Un usuario autenticado **sin fila en
+  `users`** se trata como no autenticado (falla cerrado).
 - Enrutamiento **deny-by-default**: las rutas nuevas protegidas no requieren cambios en `proxy.ts`,
   pero las públicas o por rol deben registrarse en `PUBLIC_ROUTES`, `STAFF_ONLY`, `FAMILY_ONLY` o
   `HOME_BY_ROLE` de `app/lib/routes.ts`. El matching (`matches()`) es exacto o por prefijo de
@@ -72,9 +82,11 @@ Las tablas de verificación de `README.md` y `CLAUDE.md` (2026-11-10) están des
   `PUBLIC_ROUTES`. No asumas que una entrada de esas listas tiene pantalla.
 - `proxy.ts` manda al home del rol a cualquier sesión que entre en una ruta pública, `/activar-cuenta`
   incluida: esas pantallas solo se ven sin sesión.
-- `/login` es acceso demo: firma `staff-demo` sin contraseña y el selector Familia está deshabilitado.
-  `?next=` se valida contra `STAFF_ONLY` en `app/login/actions.ts` (anti open redirect).
-- También hay `logout` en `app/login/actions.ts`: borra la cookie y redirige a `/login`. Lo usa
+- `/login` es login real: Server Action `login` con email y contraseña vía Supabase Auth; el rol
+  sale del perfil en `users`. `?next=` se valida con `destinoSeguro` contra las rutas del rol
+  autenticado (anti open redirect). El README que describe el botón "Entrar al feed" y el selector
+  Personal/Familia deshabilitado está desactualizado.
+- `logout` también vive en `app/login/actions.ts` (`signOut` + redirect a `/login`). Lo usa
   `app/components/logout-button.tsx` (Server Action como formulario), en la sidebar de escritorio
   y la cabecera móvil.
 
@@ -87,8 +99,8 @@ Las tablas de verificación de `README.md` y `CLAUDE.md` (2026-11-10) están des
 - `next.config.ts` activa `cacheComponents`, `partialPrefetching`, `experimental.agentFeedback` y
   fija `allowedDevOrigins` a una IP de LAN (`172.22.240.1`); actualízala si cambia.
 - Con `cacheComponents`, cualquier lectura de `connection()`, `cookies()` o `searchParams` en una
-  página debe ir dentro de `<Suspense>`. `/feed` y `/ninos` usan el patrón `XContent` + `<Suspense>`;
-  `/login` no lo hace y es el fallo de build conocido.
+  página debe ir dentro de `<Suspense>`. Todas las páginas dinámicas usan el patrón `XContent` +
+  `<Suspense>` (`FeedContent`, `NinosContent`, `LoginContent`).
 - `app/ninos/[id]/page.tsx` necesita `export const instant = false` para combinar `connection()` y
   `notFound()`. Es intencional.
 - Revisa `node_modules/next/dist/docs/` antes de cambiar data fetching o caché.
@@ -104,25 +116,27 @@ Las tablas de verificación de `README.md` y `CLAUDE.md` (2026-11-10) están des
 ```text
 app/
 ├── page.tsx                     # redirige; el proxy decide el destino
-├── feed/page.tsx                # home staff: posts en módulo, Suspense + requireRole
+├── feed/page.tsx                # home staff: posts mock, Suspense + requireRole
 ├── feed/crear-publicacion.tsx   # cliente: <dialog>, triggers y botón de la sidebar
-├── components/app-sidebar.tsx   # servidor; prop nuevaPublicacion
-├── components/logout-button.tsx # Server Action logout; sidebar y cabecera móvil
-├── components/nueva-publicacion-provider.tsx  # servidor; destinatarios + provider
 ├── ninos/layout.tsx             # envuelve niños con el provider de publicación
-├── ninos/page.tsx               # listado + modal de alta
-├── ninos/[id]/page.tsx          # perfil; instant = false
-├── ninos/agregar-nino.tsx       # modal de alta (no persiste)
-├── ninos/vincular-padre.tsx     # modal de invitación (no persiste)
-├── login/                       # page, formulario y server action
+├── ninos/page.tsx               # listado desde children (Supabase) + modal de alta
+├── ninos/gestion-ninos.tsx      # cliente: buscador y tarjetas del listado
+├── ninos/[id]/page.tsx          # perfil desde children; instant = false
+├── ninos/actions.ts             # Server Actions altaNino e invitarPadre (validan y llaman a la DAL)
+├── ninos/agregar-nino.tsx       # modal de alta (persiste vía actions.ts)
+├── ninos/vincular-padre.tsx     # modal de invitación (persiste en invitations vía actions.ts)
+├── login/                       # page, login-form y actions (login/logout reales)
 ├── activar-cuenta/page.tsx      # maqueta pública
-└── lib/{dal,session,routes,mock-ninos,fecha-nacimiento}.ts
-proxy.ts                         # sustituye a middleware.ts
+├── components/                  # app-sidebar, logout-button, nueva-publicacion-provider
+└── lib/{dal,routes,fecha-nacimiento}.ts
+utils/supabase/                  # scaffold @supabase/ssr: client, server y proxy (updateSession)
+proxy.ts                         # sustituye a middleware.ts; llama updateSession
 supabase/migrations/             # migraciones aplicadas por MCP
-specs/NN-slug.md                 # specs 01–06, todas Implementado
-.opencode/commands|agents/       # /spec, /spec-impl, /spec-imp, /spec-verify
-.agents/skills/                  # spec, spec-impl, context7-mcp + skills instaladas (skills-lock.json)
+specs/NN-slug.md                 # specs 01–11, todas Implementado
+.opencode/commands|agents/       # /spec, /spec-impl, /spec-imp, /spec-verify, /db-migrate + subagentes
+.agents/skills/                  # skills instaladas (skills-lock.json)
 references/pantallas/*.dc.html   # maquetas objetivo (+ references/screenshots/)
+references/DB-Schema/…md         # diccionario de 13 tablas: objetivo, no estado
 ```
 
 ## Diseño
@@ -133,34 +147,57 @@ references/pantallas/*.dc.html   # maquetas objetivo (+ references/screenshots/)
   `lilac*`. Utilidades: `bg-cream`, `text-ink`, `rounded-card`, `shadow-card`.
 - Compara con `references/pantallas/*.dc.html` y `references/screenshots/`. El overlay de Next Dev
   Tools no cuenta como diferencia.
+- Las capturas que muestra el README viven en `docs/capturas/` y **sí se versionan**: no las borres
+  ni las muevas a `.playwright-mcp/` (esa carpeta está ignorada). Para regenerarlas, sirve el build de
+  producción (`npm run build` + `npm run start`) y captura a 1440×900 y 390×844 con `scale: "css"`;
+  el procedimiento está en el README, sección "Cómo regenerar las capturas del README".
 - Textos visibles, mensajes de error y comentarios del código en español.
 
 ## Datos
 
-- Feed: `const posts` dentro de `app/feed/page.tsx`.
-- Niños: ocho en `app/lib/mock-ninos.ts` (`ninos`, `getNino(id)`), con padres y notas.
-- `agregar-nino`, `crear-publicacion` y `vincular-padre` validan en cliente y confirman en pantalla,
-  pero no guardan nada.
-- Fechas: `app/lib/fecha-nacimiento.ts` (máscara y validación `dd/mm/aaaa`).
-- En Supabase existen la tabla `daycares` y tres guarderías demo, pero la app no las lee.
-- Cualquier lectura de datos real futura debe pasar por la DAL.
+- Feed: `const posts` dentro de `app/feed/page.tsx` (mock, no persiste).
+- Niños y salas: reales, desde Supabase vía la DAL (`getNinos`, `getSalas`, `getDaycares`,
+  `getNinoPorId`); los tipos de UI (`Nino`, `Sala`, …) viven junto a su mapeo en `app/lib/dal.ts`.
+  `/ninos/[id]` usa uuid reales, ya no ids kebab-case del mock.
+- `altaNino` → `crearNino` inserta en `children` y hace `revalidatePath("/ninos")`.
+- `invitarPadre` → `crearInvitacion` (SPEC 11): cancela las pendientes del mismo email y niño,
+  inserta en `invitations` con código de 5 caracteres (reintenta ante `23505`) y `invited_by` del
+  perfil, nunca del formulario. El correo es simulado: no hay envío real.
+- `crear-publicacion` valida y confirma en pantalla, pero aún no guarda nada.
+- Lo persistido va en inglés y la DAL traduce: alergias (`ALERGIAS_UI_DB`, "Maní" → `peanut`) y
+  parentesco (`Mamá` → `mother`). Las filas llegan sin tipos: la DAL las castea (`as unknown as`)
+  y los embeds `rooms(...)`/`daycares(...)` pueden venir como objeto o lista.
+- Fechas: `app/lib/fecha-nacimiento.ts` (máscara y validación `dd/mm/aaaa`; a la DB van ISO).
+- **Toda lectura o escritura real pasa por la DAL**: no llames a Supabase desde páginas ni
+  componentes; la DAL también documenta la RLS que filtra cada tabla. `utils/supabase/client.ts`
+  (browser) existe pero es código muerto sin consumidor: no lo empieces a usar sin una spec.
 
 ## Migraciones (Supabase)
 
 - Proyecto: `btknjzobaqtekofvfsof`. Diccionario de tablas en
-  `references/DB-Schema/opendaycare-database-schema.md`: es el objetivo, no el estado. Solo existe
-  `daycares`; las otras doce tablas son referencia.
+  `references/DB-Schema/opendaycare-database-schema.md`: es el objetivo, no el estado. Las tablas
+  del diccionario ya están creadas (13), pero solo `daycares`, `users`, `rooms`, `children` e
+  `invitations` tienen políticas. `posts`, `comments`, `reactions`, `post_children`, `post_photos`,
+  `parent_children`, `daily_summaries` y `devices` están **sin políticas: la app no las puede
+  leer**. Por eso el embed `parent_children(...)` de `getNinos` siempre llega vacío y todos los
+  niños muestran 0 padres. Hay que crear las políticas con una migración antes de usarlas.
 - Los cambios de esquema viven en `supabase/migrations/` como `YYYYMMDDHHMMSS_snake_case.sql`, con el
   timestamp UTC de creación y un solo cambio lógico por archivo.
 - Contenido: DDL o DML plano, sin `if not exists`, sin `drop` y sin `begin`/`commit` manual.
+  Convención de idioma del diccionario: **todo lo persistido va en inglés** (enums, tags); las
+  etiquetas visibles se traducen en la UI.
 - Se aplican con `tools.supabase.apply_migration({ name, query })`; `name` es el slug sin timestamp
   (`create_daycares`) y `query` es el SQL completo del archivo. `apply_migration` asigna su propio
   `version`: no coincide con el prefijo del archivo, empareja por `name`.
-- `tools.supabase.list_migrations()` es la fuente para saber qué se aplicó (hoy `create_daycares` y
-  `seed_daycares`). Una migración aplicada no se edita: cualquier corrección va en un archivo nuevo.
+- `tools.supabase.list_migrations()` es la fuente para saber qué se aplicó (hoy 20 migraciones, de
+  `create_daycares` a `invitations_staff_rls`). Una migración aplicada no se edita: cualquier
+  corrección va en un archivo nuevo. `/db-migrate` (subagente `db-migrator`) audita repo ↔ Supabase
+  y aplica pendientes; `db-security-auditor` revisa RLS en solo lectura.
 - El archivo del repositorio y el historial de Supabase deben coincidir en contenido y cantidad.
-- `daycares` tiene RLS habilitado sin políticas; el aviso `rls_enabled_no_policy` es informativo y
-  esperado hasta la spec de `users` y autenticación.
+- RLS: habilitada en todas las tablas. Las políticas del staff son **por guardería** para `rooms`,
+  `children` e `invitations` (cadena `invitations → children → rooms → users.daycare_id`, roles
+  `staff|admin`); `users_select_own` para perfiles; `daycares` es lectura pública. Tablas sin
+  políticas disparan el aviso `rls_enabled_no_policy`: es informativo, no un error.
 
 ## Flujo de specs
 
@@ -183,10 +220,10 @@ references/pantallas/*.dc.html   # maquetas objetivo (+ references/screenshots/)
 - `playwright` está en `opencode.json` (local, `npx @playwright/mcp@latest`). `context7` es
   configuración global del entorno, no está en `opencode.json`.
 - `supabase` está en `opencode.json` como servidor remoto, apuntando al proyecto
-  `btknjzobaqtekofvfsof`. Es para consultar docs/esquema, migrar y depurar; la app todavía **no** tiene
-  SDK ni persistencia. Si `opencode mcp list` lo marca como `needs authentication`, inicia sesión
-  desde `/mcps` (no ejecutes `opencode mcp auth` por shell). En Code Mode sus herramientas son
-  `tools.supabase.<tool>`.
+  `btknjzobaqtekofvfsof`. Sirve para consultar docs/esquema, migrar y depurar; la app tiene SDK
+  propio en `utils/supabase/`, así que el MCP no sustituye a la DAL. Si `opencode mcp list` lo
+  marca como `needs authentication`, inicia sesión desde `/mcps` (no ejecutes `opencode mcp auth`
+  por shell). En Code Mode sus herramientas son `tools.supabase.<tool>`.
 - En Code Mode las herramientas MCP se llaman **dentro de `execute`** y cada llamada termina con
   `return`:
 
