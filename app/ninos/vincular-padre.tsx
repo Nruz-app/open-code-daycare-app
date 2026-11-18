@@ -8,12 +8,10 @@ import {
   type MouseEvent,
 } from "react";
 
-const PARENTESCOS = ["Mamá", "Papá", "Tutor/a"] as const;
+import type { Parentesco } from "@/app/lib/dal";
+import { invitarPadre } from "@/app/ninos/actions";
 
-type Parentesco = (typeof PARENTESCOS)[number];
-
-/** Mismo código que muestra /activar-cuenta. */
-const CODIGO_INVITACION = "7K4P9";
+const PARENTESCOS: Parentesco[] = ["Mamá", "Papá", "Tutor/a"];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,6 +21,8 @@ type Errores = {
 };
 
 type VincularPadreProps = {
+  /** uuid del niño: la invitación se persiste con `child_id` = este valor. */
+  ninoId: string;
   /** Nombre completo del niño, tal como lo muestra el perfil. */
   ninoNombre: string;
 };
@@ -35,15 +35,27 @@ const CAMPO_CLASS =
 
 const CAMPO_ERROR_CLASS = "border-coral-deep focus:border-coral-deep";
 
+const BOTON_PRIMARIO_CLASS =
+  "flex flex-1 items-center justify-center gap-[9px] rounded-chip bg-linear-to-b from-[#f4977e] to-coral p-[14px] text-[15.5px] font-extrabold text-white shadow-[0_10px_22px_-8px_rgba(238,129,100,0.7)] transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60";
+
+const BOTON_SECUNDARIO_CLASS =
+  "flex flex-1 items-center justify-center rounded-chip border-[1.5px] border-line bg-surface p-[14px] text-[15.5px] font-extrabold text-[#6e6359] transition-colors hover:border-[#d8cbba]";
+
 /**
  * Fila "Vincular otro padre" del perfil + diálogo con el formulario de
  * references/pantallas/vincular-padre.dc.html.
  *
  * Es un `<dialog>` nativo, igual que `agregar-nino.tsx`: `showModal()` atrapa
- * el foco, deja el resto de la página inerte y cierra con Escape. Todavía no
- * hay persistencia, así que "Enviar invitación" valida y confirma en pantalla.
+ * el foco, deja el resto de la página inerte y cierra con Escape.
+ *
+ * La invitación persiste en Supabase (SPEC 11): "Enviar invitación" llama a
+ * la Server Action `invitarPadre`, que genera el código en el servidor y
+ * guarda la fila. El éxito se muestra dentro del diálogo con el código para
+ * copiarlo (el correo es simulado: el código viaja por la familia, no por
+ * email). El cierre queda bloqueado mientras el envío está en vuelo para no
+ * perder el código.
  */
-export function VincularPadre({ ninoNombre }: VincularPadreProps) {
+export function VincularPadre({ ninoId, ninoNombre }: VincularPadreProps) {
   const dialogoRef = useRef<HTMLDialogElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -52,11 +64,14 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
   const [email, setEmail] = useState("");
   const [parentesco, setParentesco] = useState<Parentesco>("Mamá");
   const [errores, setErrores] = useState<Errores>({});
+  const [pendiente, setPendiente] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+  const [codigoExito, setCodigoExito] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const primerNombre = ninoNombre.split(" ")[0];
 
-  // El aviso de envío se apaga solo.
+  // El aviso de la copia se apaga solo.
   useEffect(() => {
     if (!aviso) {
       return;
@@ -79,13 +94,36 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
     setEmail("");
     setParentesco("Mamá");
     setErrores({});
+    setPendiente(false);
+    setErrorEnvio(null);
+    setCodigoExito(null);
   }
 
   function cerrar() {
     dialogoRef.current?.close();
   }
 
-  function enviar(event: FormEvent<HTMLFormElement>) {
+  /** Cerrar durante el envío limpia la vista de éxito y se pierde el código. */
+  function cerrarSeguro() {
+    if (!pendiente) {
+      cerrar();
+    }
+  }
+
+  async function copiarCodigo() {
+    if (!codigoExito) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(codigoExito);
+      setAviso("Código copiado al portapapeles.");
+    } catch {
+      setAviso("No se pudo copiar el código.");
+    }
+  }
+
+  async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nombreLimpio = nombre.trim();
@@ -110,14 +148,35 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
       return;
     }
 
-    setAviso(`Invitación enviada a ${emailLimpio}.`);
-    cerrar();
+    setPendiente(true);
+    setErrorEnvio(null);
+
+    const resultado = await invitarPadre({
+      childId: ninoId,
+      nombre: nombreLimpio,
+      email: emailLimpio,
+      parentesco,
+    });
+
+    setPendiente(false);
+
+    if (!resultado.ok) {
+      // La acción ya devuelve el mensaje exacto; el diálogo no se cierra y
+      // los datos quedan para reintentar.
+      setErrorEnvio(
+        resultado.error ?? "No se pudo enviar la invitación. Intentalo de nuevo.",
+      );
+
+      return;
+    }
+
+    setCodigoExito(resultado.codigo);
   }
 
   /** El backdrop es el propio `<dialog>`; el contenido siempre es un hijo. */
   function alClicFondo(event: MouseEvent<HTMLDialogElement>) {
     if (event.target === event.currentTarget) {
-      cerrar();
+      cerrarSeguro();
     }
   }
 
@@ -154,9 +213,15 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
         aria-describedby="vincular-padre-descripcion"
         onClose={limpiar}
         onClick={alClicFondo}
+        onCancel={(event) => {
+          // Escape durante el envío también perdería el código.
+          if (pendiente) {
+            event.preventDefault();
+          }
+        }}
         className="m-auto max-h-[90vh] w-[calc(100%-32px)] max-w-[480px] overflow-y-auto overscroll-contain rounded-[24px] border border-line bg-paper p-0 text-ink shadow-[0_20px_50px_-24px_rgba(63,54,46,0.35)] backdrop:bg-[rgba(63,54,46,0.45)]"
       >
-        <form onSubmit={enviar} autoComplete="off" className="text-left">
+        <div className="text-left">
           <div className="flex items-center justify-between gap-3 border-b border-line px-[26px] py-5">
             <div className="min-w-0">
               <h2
@@ -174,7 +239,7 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
             </div>
             <button
               type="button"
-              onClick={cerrar}
+              onClick={cerrarSeguro}
               aria-label="Cerrar"
               className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] bg-[#f0e6d8] text-ink-muted transition-colors hover:text-ink"
             >
@@ -194,169 +259,232 @@ export function VincularPadre({ ninoNombre }: VincularPadreProps) {
             </button>
           </div>
 
-          <div className="px-[26px] py-[22px]">
-            <div className="mb-5 flex gap-[11px] rounded-[14px] bg-[#e3ecfb] px-4 py-[13px]">
-              <svg
-                aria-hidden="true"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#4e72c8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mt-px flex-none"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4M12 8h.01" />
-              </svg>
-              <span className="text-[13.5px] leading-[1.45] text-[#3f5694]">
-                Le enviaremos un correo con un código para que active su cuenta.
-                Solo verá el feed de {primerNombre}.
-              </span>
-            </div>
-
-            <label htmlFor="vincular-padre-nombre" className={ETIQUETA_CLASS}>
-              NOMBRE DEL PADRE/MADRE
-            </label>
-            <input
-              ref={nombreRef}
-              id="vincular-padre-nombre"
-              value={nombre}
-              onChange={(event) => {
-                setNombre(event.target.value);
-
-                if (errores.nombre && event.target.value.trim()) {
-                  setErrores((previos) => ({ ...previos, nombre: undefined }));
-                }
-              }}
-              placeholder="Ej. Diego Fernández"
-              aria-invalid={Boolean(errores.nombre)}
-              aria-describedby={
-                errores.nombre ? "vincular-padre-error-nombre" : undefined
-              }
-              className={`${CAMPO_CLASS} mb-[18px] ${
-                errores.nombre ? CAMPO_ERROR_CLASS : ""
-              }`}
-            />
-            {errores.nombre ? (
-              <p
-                id="vincular-padre-error-nombre"
-                role="alert"
-                className="-mt-3 mb-[18px] text-[12.5px] font-bold text-coral-deep"
-              >
-                {errores.nombre}
-              </p>
-            ) : null}
-
-            <label htmlFor="vincular-padre-email" className={ETIQUETA_CLASS}>
-              EMAIL
-            </label>
-            <input
-              ref={emailRef}
-              id="vincular-padre-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-
-                if (
-                  errores.email &&
-                  EMAIL_PATTERN.test(event.target.value.trim())
-                ) {
-                  setErrores((previos) => ({ ...previos, email: undefined }));
-                }
-              }}
-              placeholder="correo@ejemplo.com"
-              aria-invalid={Boolean(errores.email)}
-              aria-describedby={
-                errores.email ? "vincular-padre-error-email" : undefined
-              }
-              className={`${CAMPO_CLASS} mb-[18px] ${
-                errores.email ? CAMPO_ERROR_CLASS : ""
-              }`}
-            />
-            {errores.email ? (
-              <p
-                id="vincular-padre-error-email"
-                role="alert"
-                className="-mt-3 mb-[18px] text-[12.5px] font-bold text-coral-deep"
-              >
-                {errores.email}
-              </p>
-            ) : null}
-
-            <div className="mb-5">
-              <div
-                id="vincular-padre-parentesco"
-                className="mb-2.5 text-[12px] font-extrabold tracking-[0.7px] text-ink-muted"
-              >
-                PARENTESCO
+          {codigoExito ? (
+            <div className="px-[26px] py-[22px]">
+              <div className="mb-5 flex gap-[11px] rounded-[14px] bg-mint-soft px-4 py-[13px]">
+                <svg
+                  aria-hidden="true"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mt-px flex-none text-mint"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m8.5 12.5 2.5 2.5 5-5.5" />
+                </svg>
+                <span className="text-[13.5px] leading-[1.45] text-mint">
+                  Invitación enviada a {email}. Compartile el código con la
+                  familia para que active su cuenta.
+                </span>
               </div>
-              <div
-                role="group"
-                aria-labelledby="vincular-padre-parentesco"
-                className="flex gap-[9px]"
-              >
-                {PARENTESCOS.map((opcion) => {
-                  const activa = parentesco === opcion;
 
-                  return (
-                    <button
-                      key={opcion}
-                      type="button"
-                      aria-pressed={activa}
-                      onClick={() => setParentesco(opcion)}
-                      className={`flex-1 rounded-full border-[1.5px] p-[11px] text-[14px] font-extrabold transition-colors ${
-                        activa
-                          ? "border-[#9fb8ec] bg-[#ccd8f4] text-[#4e72c8]"
-                          : "border-line bg-surface text-[#6e6359] hover:border-[#d8cbba]"
-                      }`}
-                    >
-                      {opcion}
-                    </button>
-                  );
-                })}
+              <div className="mb-5 rounded-[16px] border-[1.5px] border-dashed border-[#e6d08a] bg-[#fbf1d6] p-[18px] text-center">
+                <div className="mb-2 text-[12px] font-extrabold tracking-[0.7px] text-[#a88526]">
+                  CÓDIGO DE INVITACIÓN
+                </div>
+                <div className="font-display text-[34px] font-semibold tracking-[7px] text-[#8a7234]">
+                  {codigoExito}
+                </div>
+                <div className="mt-[6px] text-[13px] text-[#a88526]">
+                  Vence en 7 días
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={copiarCodigo}
+                  className={BOTON_SECUNDARIO_CLASS}
+                >
+                  Copiar código
+                </button>
+                <button
+                  type="button"
+                  onClick={cerrar}
+                  className={BOTON_PRIMARIO_CLASS}
+                >
+                  Listo
+                </button>
               </div>
             </div>
-
-            <div className="mb-5 rounded-[16px] border-[1.5px] border-dashed border-[#e6d08a] bg-[#fbf1d6] p-[18px] text-center">
-              <div className="mb-2 text-[12px] font-extrabold tracking-[0.7px] text-[#a88526]">
-                CÓDIGO DE INVITACIÓN
-              </div>
-              <div className="font-display text-[34px] font-semibold tracking-[7px] text-[#8a7234]">
-                {CODIGO_INVITACION}
-              </div>
-              <div className="mt-[6px] text-[13px] text-[#a88526]">
-                Vence en 7 días
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-[9px] rounded-chip bg-linear-to-b from-[#f4977e] to-coral p-[14px] text-[15.5px] font-extrabold text-white shadow-[0_10px_22px_-8px_rgba(238,129,100,0.7)] transition-opacity hover:opacity-95"
+          ) : (
+            <form
+              onSubmit={enviar}
+              autoComplete="off"
+              className="px-[26px] py-[22px]"
             >
-              <svg
-                aria-hidden="true"
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#fff"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <div className="mb-5 flex gap-[11px] rounded-[14px] bg-[#e3ecfb] px-4 py-[13px]">
+                <svg
+                  aria-hidden="true"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#4e72c8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mt-px flex-none"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4M12 8h.01" />
+                </svg>
+                <span className="text-[13.5px] leading-[1.45] text-[#3f5694]">
+                  Le enviaremos un correo con un código para que active su
+                  cuenta. Solo verá el feed de {primerNombre}.
+                </span>
+              </div>
+
+              <label htmlFor="vincular-padre-nombre" className={ETIQUETA_CLASS}>
+                NOMBRE DEL PADRE/MADRE
+              </label>
+              <input
+                ref={nombreRef}
+                id="vincular-padre-nombre"
+                value={nombre}
+                onChange={(event) => {
+                  setNombre(event.target.value);
+
+                  if (errores.nombre && event.target.value.trim()) {
+                    setErrores((previos) => ({ ...previos, nombre: undefined }));
+                  }
+                }}
+                placeholder="Ej. Diego Fernández"
+                aria-invalid={Boolean(errores.nombre)}
+                aria-describedby={
+                  errores.nombre ? "vincular-padre-error-nombre" : undefined
+                }
+                className={`${CAMPO_CLASS} mb-[18px] ${
+                  errores.nombre ? CAMPO_ERROR_CLASS : ""
+                }`}
+              />
+              {errores.nombre ? (
+                <p
+                  id="vincular-padre-error-nombre"
+                  role="alert"
+                  className="-mt-3 mb-[18px] text-[12.5px] font-bold text-coral-deep"
+                >
+                  {errores.nombre}
+                </p>
+              ) : null}
+
+              <label htmlFor="vincular-padre-email" className={ETIQUETA_CLASS}>
+                EMAIL
+              </label>
+              <input
+                ref={emailRef}
+                id="vincular-padre-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+
+                  if (
+                    errores.email &&
+                    EMAIL_PATTERN.test(event.target.value.trim())
+                  ) {
+                    setErrores((previos) => ({ ...previos, email: undefined }));
+                  }
+                }}
+                placeholder="correo@ejemplo.com"
+                aria-invalid={Boolean(errores.email)}
+                aria-describedby={
+                  errores.email ? "vincular-padre-error-email" : undefined
+                }
+                className={`${CAMPO_CLASS} mb-[18px] ${
+                  errores.email ? CAMPO_ERROR_CLASS : ""
+                }`}
+              />
+              {errores.email ? (
+                <p
+                  id="vincular-padre-error-email"
+                  role="alert"
+                  className="-mt-3 mb-[18px] text-[12.5px] font-bold text-coral-deep"
+                >
+                  {errores.email}
+                </p>
+              ) : null}
+
+              <div className="mb-5">
+                <div
+                  id="vincular-padre-parentesco"
+                  className="mb-2.5 text-[12px] font-extrabold tracking-[0.7px] text-ink-muted"
+                >
+                  PARENTESCO
+                </div>
+                <div
+                  role="group"
+                  aria-labelledby="vincular-padre-parentesco"
+                  className="flex gap-[9px]"
+                >
+                  {PARENTESCOS.map((opcion) => {
+                    const activa = parentesco === opcion;
+
+                    return (
+                      <button
+                        key={opcion}
+                        type="button"
+                        aria-pressed={activa}
+                        onClick={() => setParentesco(opcion)}
+                        className={`flex-1 rounded-full border-[1.5px] p-[11px] text-[14px] font-extrabold transition-colors ${
+                          activa
+                            ? "border-[#9fb8ec] bg-[#ccd8f4] text-[#4e72c8]"
+                            : "border-line bg-surface text-[#6e6359] hover:border-[#d8cbba]"
+                        }`}
+                      >
+                        {opcion}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {errorEnvio ? (
+                <p
+                  role="alert"
+                  className="mb-5 rounded-[14px] bg-[#fbe3dc] px-4 py-[13px] text-[13.5px] font-bold text-coral-deep"
+                >
+                  {errorEnvio}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={pendiente}
+                className={`w-full ${BOTON_PRIMARIO_CLASS}`}
               >
-                <path d="m22 2-7 20-4-9-9-4z" />
-                <path d="M22 2 11 13" />
-              </svg>
-              Enviar invitación
-            </button>
-          </div>
-        </form>
+                {pendiente ? (
+                  "Enviando…"
+                ) : (
+                  <>
+                    <svg
+                      aria-hidden="true"
+                      width="19"
+                      height="19"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m22 2-7 20-4-9-9-4z" />
+                      <path d="M22 2 11 13" />
+                    </svg>
+                    Enviar invitación
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
       </dialog>
 
       <div

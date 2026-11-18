@@ -10,20 +10,20 @@ import {
   type ReactNode,
 } from "react";
 
-import type { AvatarTone } from "@/app/lib/mock-ninos";
+import type { AvatarTone } from "@/app/lib/dal";
 
 /** Opción exclusiva de "Toda la sala"; no es un id de niño. */
 const TODA_LA_SALA = "toda-la-sala";
 
 type Destinatario = {
-  id: string; // "mateo-fernandez"
+  id: string; // uuid del niño
   nombre: string; // "Mateo", solo el primer nombre
   inicial: string; // "M"
   avatarTone: AvatarTone;
 };
 
 type CrearPublicacionProviderProps = {
-  /** Los tres primeros niños de app/lib/mock-ninos.ts. */
+  /** Los tres primeros niños de la base, vía DAL. */
   destinatarios: Destinatario[];
   children: ReactNode;
 };

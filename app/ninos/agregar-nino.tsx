@@ -1,25 +1,37 @@
 "use client";
 
 import {
-  useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type FormEvent,
   type MouseEvent,
+  type Ref,
 } from "react";
 
 import {
   aplicarMascaraFecha,
   validarFechaNacimiento,
 } from "@/app/lib/fecha-nacimiento";
-
-const SALAS = ["Soles", "Lunas", "Estrellas"] as const;
-
-type Sala = (typeof SALAS)[number];
+import type { Sala } from "@/app/lib/dal";
+import { altaNino } from "@/app/ninos/actions";
 
 type Errores = {
   nombre?: string;
   fecha?: string;
+  guardar?: string;
+};
+
+/** Lo que el componente expone a su padre: abrir el diálogo de alta. */
+export type AgregarNinoHandle = {
+  abrir: () => void;
+};
+
+type AgregarNinoProps = {
+  /** Salas de la guardería (tabla `rooms`) para el select del formulario. */
+  salas: Sala[];
+  /** Handle para que otros disparadores (estado vacío) abran el diálogo. */
+  ref?: Ref<AgregarNinoHandle>;
 };
 
 const ETIQUETA_CLASS =
@@ -35,32 +47,26 @@ const CAMPO_ERROR_CLASS = "border-coral-deep focus:border-coral-deep";
  * references/pantallas/agregar-nino.dc.html.
  *
  * Es un `<dialog>` nativo: `showModal()` atrapa el foco, deja el resto de la
- * página inerte y cierra con Escape. Todavía no hay persistencia, así que
- * "Guardar" valida y confirma en pantalla.
+ * página inerte y cierra con Escape. Al validar y guardar llama la Server
+ * Action `altaNino` (insert real en `children` vía DAL); si el insert falla,
+ * el diálogo muestra el error y conserva lo escrito.
  */
-export function AgregarNino() {
+export function AgregarNino({ salas, ref }: AgregarNinoProps) {
   const dialogoRef = useRef<HTMLDialogElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const fechaRef = useRef<HTMLInputElement>(null);
 
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState("");
-  const [sala, setSala] = useState<Sala>("Soles");
+  const [salaElegida, setSalaElegida] = useState<string | null>(null);
   const [alergias, setAlergias] = useState("");
   const [notas, setNotas] = useState("");
   const [errores, setErrores] = useState<Errores>({});
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
-  // El aviso de guardado se apaga solo.
-  useEffect(() => {
-    if (!aviso) {
-      return;
-    }
-
-    const temporizador = window.setTimeout(() => setAviso(null), 4000);
-
-    return () => window.clearTimeout(temporizador);
-  }, [aviso]);
+  // Por defecto, Soles si existe; si no, la primera de la lista.
+  const salaInicial = salas.find((sala) => sala.name === "Soles")?.id ?? salas[0]?.id ?? "";
+  const salaActual = salaElegida ?? salaInicial;
 
   const etiquetasAlergias = alergias
     .split(",")
@@ -77,7 +83,7 @@ export function AgregarNino() {
   function limpiar() {
     setNombre("");
     setFecha("");
-    setSala("Soles");
+    setSalaElegida(null);
     setAlergias("");
     setNotas("");
     setErrores({});
@@ -86,6 +92,9 @@ export function AgregarNino() {
   function cerrar() {
     dialogoRef.current?.close();
   }
+
+  // El CTA del estado vacío comparte este diálogo: nadie duplica el <dialog>.
+  useImperativeHandle(ref, () => ({ abrir }));
 
   function cambiarFecha(valor: string) {
     const conMascara = aplicarMascaraFecha(valor);
@@ -111,7 +120,7 @@ export function AgregarNino() {
     }));
   }
 
-  function guardar(event: FormEvent<HTMLFormElement>) {
+  async function guardar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nombreLimpio = nombre.trim();
@@ -131,7 +140,36 @@ export function AgregarNino() {
       return;
     }
 
-    setAviso(`Listo, agregamos a ${nombreLimpio}.`);
+    setGuardando(true);
+    setErrores((previos) => ({ ...previos, guardar: undefined }));
+
+    // Alta real: Server Action con insert en `children` (vía DAL). Si algo
+    // falla (red, RLS), el diálogo muestra el error y conserva lo escrito.
+    const resultado = await altaNino({
+      nombre: nombreLimpio,
+      fecha,
+      salaId: salaActual,
+      alergias: etiquetasAlergias,
+      notas: notas.trim() || undefined,
+    }).catch(
+      () =>
+        ({
+          ok: false,
+          error: "No se pudo guardar el niño. Intentalo de nuevo.",
+        }) as const,
+    );
+
+    setGuardando(false);
+
+    if (!resultado.ok) {
+      setErrores({
+        guardar:
+          resultado.error ?? "No se pudo guardar el niño. Intentalo de nuevo.",
+      });
+
+      return;
+    }
+
     cerrar();
   }
 
@@ -177,7 +215,8 @@ export function AgregarNino() {
             <button
               type="button"
               onClick={cerrar}
-              className="text-[15px] font-bold text-ink-muted transition-colors hover:text-ink"
+              disabled={guardando}
+              className="text-[15px] font-bold text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -189,13 +228,23 @@ export function AgregarNino() {
             </h2>
             <button
               type="submit"
-              className="text-[15px] font-extrabold text-coral-deep transition-colors hover:text-coral-heart"
+              disabled={guardando}
+              className="text-[15px] font-extrabold text-coral-deep transition-colors hover:text-coral-heart disabled:opacity-50"
             >
-              Guardar
+              {guardando ? "Guardando…" : "Guardar"}
             </button>
           </div>
 
           <div className="px-[26px] py-6">
+            {errores.guardar ? (
+              <p
+                role="alert"
+                className="mb-[18px] rounded-chip bg-[#fbd8cc] px-4 py-3 text-[13px] font-bold text-[#d9684a]"
+              >
+                {errores.guardar}
+              </p>
+            ) : null}
+
             <label htmlFor="agregar-nino-nombre" className={ETIQUETA_CLASS}>
               NOMBRE COMPLETO
             </label>
@@ -270,15 +319,19 @@ export function AgregarNino() {
                 <div className="relative">
                   <select
                     id="agregar-nino-sala"
-                    value={sala}
-                    onChange={(event) => setSala(event.target.value as Sala)}
+                    value={salaActual}
+                    onChange={(event) => setSalaElegida(event.target.value)}
                     className={`${CAMPO_CLASS} appearance-none pr-10 font-bold`}
                   >
-                    {SALAS.map((opcion) => (
-                      <option key={opcion} value={opcion}>
-                        {opcion}
-                      </option>
-                    ))}
+                    {salas.length === 0 ? (
+                      <option value="">No hay salas cargadas</option>
+                    ) : (
+                      salas.map((sala) => (
+                        <option key={sala.id} value={sala.id}>
+                          {sala.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <svg
                     aria-hidden="true"
@@ -345,18 +398,6 @@ export function AgregarNino() {
           </div>
         </form>
       </dialog>
-
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed inset-x-4 bottom-6 z-50 flex justify-center"
-      >
-        {aviso ? (
-          <p className="rounded-full bg-ink px-5 py-3 text-[14px] font-extrabold text-white shadow-card">
-            {aviso}
-          </p>
-        ) : null}
-      </div>
     </>
   );
 }

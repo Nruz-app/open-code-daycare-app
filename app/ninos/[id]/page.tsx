@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { AppSidebar } from "@/app/components/app-sidebar";
-import { requireRole } from "@/app/lib/dal";
-import { getNino, type AvatarTone } from "@/app/lib/mock-ninos";
+import { getNinoPorId, requireRole, type AvatarTone } from "@/app/lib/dal";
 import { VincularPadre } from "@/app/ninos/vincular-padre";
 
 /**
@@ -40,7 +39,7 @@ export default async function PerfilNinoPage({
 
   await requireRole("staff");
 
-  const nino = getNino(id);
+  const nino = await getNinoPorId(id);
 
   if (!nino) {
     notFound();
@@ -203,7 +202,7 @@ export default async function PerfilNinoPage({
                     </div>
                   ))}
 
-                  <VincularPadre ninoNombre={nino.nombre} />
+                  <VincularPadre ninoId={nino.id} ninoNombre={nino.nombre} />
                 </div>
               </div>
             </div>

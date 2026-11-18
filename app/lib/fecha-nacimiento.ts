@@ -88,3 +88,40 @@ export function validarFechaNacimiento(
 
   return null;
 }
+
+/**
+ * Edad en años completos como la muestra el listado: "3 años".
+ * Con 0 años completos devuelve "menos de 1 año". Si `dd/mm/aaaa` no
+ * cumple el formato (solo pasa con datos internos mal armados), devuelve "".
+ * `hoy` se puede inyectar para que el cálculo sea estable.
+ */
+export function calcularEdadTexto(
+  valor: string,
+  hoy: Date = new Date(),
+): string {
+  const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor.trim());
+
+  if (!partes) {
+    return "";
+  }
+
+  const dia = Number(partes[1]);
+  const mes = Number(partes[2]);
+  const anio = Number(partes[3]);
+
+  // Años completos: aún no cumplió si su (día, mes) es posterior al de hoy.
+  let edad = hoy.getFullYear() - anio;
+
+  const mesHoy = hoy.getMonth() + 1;
+  const yaPasó = mes < mesHoy || (mes === mesHoy && dia <= hoy.getDate());
+
+  if (!yaPasó) {
+    edad -= 1;
+  }
+
+  if (edad <= 0) {
+    return "menos de 1 año";
+  }
+
+  return edad === 1 ? "1 año" : `${edad} años`;
+}
